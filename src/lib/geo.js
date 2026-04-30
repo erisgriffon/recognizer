@@ -21,10 +21,14 @@ export const isLeyLine = (p1, p2, p3, tolDeg = 0.5) => {
   return (cross / v1mag) < tolDeg;
 };
 
+// addressdetails=1 makes Nominatim include a structured address object on
+// the response. We pull country/countryCode out of that for the same-country
+// connection kind. Failure to parse address details degrades to country=null;
+// the engine treats null as "country unknown" and skips the same-country check.
 export const geocode = async (query) => {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(query)}&limit=1`,
       { headers: { Accept: "application/json" } }
     );
     if (!res.ok) return null;
@@ -37,6 +41,8 @@ export const geocode = async (query) => {
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
       type: r.type,
+      country: r.address?.country || null,
+      countryCode: r.address?.country_code?.toUpperCase() || null,
     };
   } catch (e) { return null; }
 };
@@ -44,7 +50,7 @@ export const geocode = async (query) => {
 export const reverseGeocode = async (lat, lng) => {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`,
       { headers: { Accept: "application/json" } }
     );
     if (!res.ok) return null;
@@ -54,6 +60,8 @@ export const reverseGeocode = async (lat, lng) => {
       fullName: data.display_name || "",
       lat, lng,
       type: data.type || "place",
+      country: data.address?.country || null,
+      countryCode: data.address?.country_code?.toUpperCase() || null,
     };
   } catch (e) { return null; }
 };
