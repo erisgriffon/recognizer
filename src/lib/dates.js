@@ -72,11 +72,17 @@ export const moonPhase = (date) => {
 
 export const dateFacts = (date, label = "date") => {
   const today = new Date();
+  // Component labels are intentionally bare ("year" / "month" / "day"), not
+  // prefixed with the user's date label. The connection rephrasers already
+  // include the node name in their sentences, so prefixing here produces
+  // awkward duplication like "the Krakatoa eruption day of Krakatoa eruption".
+  // The "days since ${label}" fact does keep the label, since it's reading
+  // *naturally* as a comparison ("days since Krakatoa eruption").
   return {
-    [`${label} year`]: date.getFullYear(),
-    [`${label} month`]: date.getMonth() + 1,
-    [`${label} day`]: date.getDate(),
+    "year": date.getFullYear(),
+    "month": date.getMonth() + 1,
+    "day": date.getDate(),
     [`days since ${label}`]: daysBetween(date, today),
-    [`${label} day-of-year`]: Math.ceil((date - new Date(date.getFullYear(), 0, 0)) / 86400000),
+    "day of year": Math.ceil((date - new Date(date.getFullYear(), 0, 0)) / 86400000),
   };
 };

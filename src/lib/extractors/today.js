@@ -27,10 +27,10 @@ export const buildTodayNode = (events = []) => {
   const julianMod = jdn % 1000;
 
   const numbers = {
-    "current year": now.getFullYear(),
-    "current month": now.getMonth() + 1,
-    "current day": now.getDate(),
-    "current day-of-year": dayOfYear,
+    "year": now.getFullYear(),
+    "month": now.getMonth() + 1,
+    "day": now.getDate(),
+    "day of year": dayOfYear,
     "week of year": weekOfYear,
     "days until year end": daysBetween(now, endOfYear),
     "lunar day": lunarDay,

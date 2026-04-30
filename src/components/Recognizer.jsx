@@ -142,7 +142,7 @@ export default function Recognizer() {
         Object.assign(facts, wikidata.facts);
         // For day-precision birth date, derive zodiac/weekday/lunar so the
         // node participates in date-cluster machinery (today-mention, etc).
-        const birth = wikidata.dates["date of birth"];
+        const birth = wikidata.dates["birth"];
         if (birth && isInRange(birth)) {
           dateDerived.zodiac = zodiacOf(birth);
           dateDerived.dayOfWeek = dayOfWeek(birth);

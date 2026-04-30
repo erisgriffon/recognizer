@@ -11,8 +11,8 @@
 // parenthetical opener dates anymore.
 
 export const WIKIDATA_PROPERTIES = {
-  P569: { key: "date of birth", isDate: true },
-  P570: { key: "date of death", isDate: true },
+  P569: { key: "birth", isDate: true },
+  P570: { key: "death", isDate: true },
   P571: { key: "inception", isDate: true }, // founding date for orgs/places
   P585: { key: "point in time", isDate: true }, // for events
   P2048: { key: "height (cm)", isQuantity: true },
