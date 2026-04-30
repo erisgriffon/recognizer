@@ -37,11 +37,16 @@ export default [
       // hand-pinned-paper jitter effect. The hook-purity rule flags this as a
       // side effect inside useEffect, which is the correct place for it.
       "react-hooks/purity": "off",
-      // The soft-cap warning effect in Recognizer.jsx computes a derived
-      // string from nodes.length and stores it in state for display. This
-      // technically can be inlined as `const warning = computeWarning(...)`
-      // — improvement to consider after the refactor, but the v0.13 source
-      // uses setState-in-effect and "zero behavior changes" forbids touching it.
+      // This rule has real value — it catches infinite re-render loops where
+      // an effect schedules a setState that retriggers the effect. We're
+      // overriding it for two intentional patterns:
+      //   1. Recognizer.jsx — the soft-cap warning effect derives a string
+      //      from nodes.length and stores it in state. (Could be inlined as
+      //      `const warning = computeWarning(...)` post-refactor.)
+      //   2. Recognizer.jsx — the on-mount fetchOnThisDay → setTodayNode
+      //      effect (one-shot async with cancellation flag).
+      // If Code Claude flags either of these patterns as suspect in the
+      // future, take the warning seriously rather than waving it through.
       "react-hooks/set-state-in-effect": "off",
       // `let x = {}; try { x = await ... } catch { x = {} }` is the documented
       // graceful-degradation pattern in CLAUDE.md (extractors return partial

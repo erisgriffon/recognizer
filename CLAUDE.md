@@ -208,3 +208,21 @@ that should stay in the component.
 - Run `npm run build` after structural changes. Vite errors on missing imports.
 - The user (Eris) is a Director of Platform Engineering, not a frontend
   developer. Explain frontend choices when you make them.
+
+## Tooling notes
+
+### `npm install` peer-dependency history
+
+A plain `npm install` resolves cleanly today — no `--legacy-peer-deps`
+needed. This was briefly not the case: when adding lint and tests, an
+initial install pulled in `eslint-plugin-react@7.x` (which declares peer
+`eslint@^8`) alongside `eslint@10.x`, and npm refused to resolve. The fix
+was to remove `eslint-plugin-react` from `devDependencies` entirely — the
+flat config only uses `react-hooks` and `react-refresh`, so the plugin
+was unused dead weight.
+
+If a future `npm install` ever fails with `ERESOLVE`, the right move is
+**not** `--legacy-peer-deps`. The right move is to identify which package
+is pulling in a stale peer and decide whether you actually need it.
+Reaching for `--legacy-peer-deps` lets a broken dep tree into the lockfile
+and turns into project lore nobody can explain six months later.
