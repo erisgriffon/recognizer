@@ -42,7 +42,12 @@ export const STRENGTH = {
   COLOR_MATCH: 0.7,
   DISTANCE: 0.7,
   DISTANCE_MATCH: 0.95,
+  // Surface tier ley-lines emit pairwise — three findings per triangle
+  // (existing behavior, kept for backwards compat). Standard+ tiers emit
+  // one ley-line-triangle per triangle at LEY_LINE_TRIANGLE strength;
+  // both constants coexist so the two emission modes stay distinct.
   LEY_LINE: 0.8,
+  LEY_LINE_TRIANGLE: 0.85,
   // Lexical depth — Standard and Deep tiers. Surface tier reuses ANAGRAM,
   // NEAR_ANAGRAM, WORD_OVERLAP, STYLOMETRIC. Phonetic at 0.7 lands STRIKING
   // because sounds-alike between submitted names is a genuinely interesting
@@ -54,6 +59,16 @@ export const STRENGTH = {
   LEXICAL_STEM: 0.5,
   LEXICAL_HOMOGLYPH: 0.85,
   LEXICAL_REVERSE: 0.75,
+  // Geographic depth — Standard and Deep tiers. Antipodal at 0.85 because
+  // diametric opposition is geometrically extremal and rare. Magnetic-pole
+  // at 0.8 because the magnetic poles are in the Arctic/Antarctic Ocean
+  // remote enough that two unrelated locations both qualifying is genuinely odd.
+  GEO_ANTIPODAL: 0.85,
+  GEO_TIMEZONE: 0.4,
+  GEO_SAME_COUNTRY: 0.45,
+  GEO_GREAT_CIRCLE: 0.7,
+  GEO_MAGNETIC_POLE: 0.8,
+  GEO_ELEVATION_BAND: 0.55,
 };
 
 // Named strength tiers replace the misleading "CONFIDENCE %" label. Strength

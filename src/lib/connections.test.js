@@ -619,6 +619,178 @@ describe("findConnections — lexical depth tiers", () => {
   });
 });
 
+describe("findConnections — geographic depth tiers", () => {
+  const locNode = (id, name, lat, lng, extras = {}) => ({
+    id, type: "location", name, lat, lng, numbers: extras.numbers || {}, ...extras,
+  });
+
+  it("depth=0 produces no distance, ley-line, or other geographic findings", () => {
+    const nodes = [
+      locNode("a", "P1", 0, 0),
+      locNode("b", "P2", 0, 1),
+      locNode("c", "P3", 0, 2),
+    ];
+    const kinds = findKinds(nodes, { geographicDepth: 0 });
+    expect(kinds).not.toContain("distance");
+    expect(kinds).not.toContain("ley-line");
+    expect(kinds).not.toContain("ley-line-triangle");
+    expect(kinds).not.toContain("antipodal-match");
+  });
+
+  it("depth=1 (default) emits 3 pairwise ley-line findings per triangle (backwards compat)", () => {
+    const nodes = [
+      locNode("a", "P1", 0, 10),
+      locNode("b", "P2", 30, 10),
+      locNode("c", "P3", 60, 10),
+    ];
+    const conns = findConnections(nodes); // default
+    expect(conns.filter((c) => c.kind === "ley-line").length).toBe(3);
+    expect(conns.filter((c) => c.kind === "ley-line-triangle").length).toBe(0);
+  });
+
+  it("depth=2 emits ONE ley-line-triangle per collinear triple, not three pairwise", () => {
+    const nodes = [
+      locNode("a", "P1", 0, 10),
+      locNode("b", "P2", 30, 10),
+      locNode("c", "P3", 60, 10),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 2 });
+    expect(conns.filter((c) => c.kind === "ley-line").length).toBe(0);
+    const tri = conns.filter((c) => c.kind === "ley-line-triangle");
+    expect(tri.length).toBe(1);
+    expect(tri[0].participants.length).toBe(3);
+    expect(tri[0].strength).toBe(STRENGTH.LEY_LINE_TRIANGLE);
+  });
+
+  it("depth=2 ley-line-triangle is routable to all three participants via connectionsForNode", () => {
+    const nodes = [
+      locNode("a", "P1", 0, 10),
+      locNode("b", "P2", 30, 10),
+      locNode("c", "P3", 60, 10),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 2 });
+    expect(connectionsForNode(conns, "a").some((c) => c.kind === "ley-line-triangle")).toBe(true);
+    expect(connectionsForNode(conns, "b").some((c) => c.kind === "ley-line-triangle")).toBe(true);
+    expect(connectionsForNode(conns, "c").some((c) => c.kind === "ley-line-triangle")).toBe(true);
+  });
+
+  it("depth=2 antipodal-match fires for diametrically opposite points", () => {
+    const nodes = [
+      locNode("a", "Spain", 40, 0),
+      locNode("b", "NZ-ish", -40, 180),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 2 });
+    const a = conns.find((c) => c.kind === "antipodal-match");
+    expect(a).toBeTruthy();
+    expect(a.strength).toBe(STRENGTH.GEO_ANTIPODAL);
+  });
+
+  it("depth=2 time-zone-match fires for distant points sharing approximate UTC offset", () => {
+    // 75°E and 76°E both round to UTC+5; 1° at the equator is ~111km, so
+    // bump the second city far enough north to clear the 500km floor.
+    const nodes = [
+      locNode("a", "City X", 0, 75),
+      locNode("b", "City Y", 60, 76),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 2 });
+    const tz = conns.find((c) => c.kind === "time-zone-match");
+    expect(tz).toBeTruthy();
+    expect(tz.offset).toBe(5);
+  });
+
+  it("depth=2 same-country fires only when both nodes carry the same country", () => {
+    const nodes = [
+      locNode("a", "City A", 40, -100, { country: "United States" }),
+      locNode("b", "City B", 35, -120, { country: "United States" }),
+      locNode("c", "City C", 51, 0, { country: "United Kingdom" }),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 2 });
+    const sc = conns.filter((c) => c.kind === "same-country");
+    expect(sc.length).toBe(1);
+    expect(sc[0].country).toBe("United States");
+  });
+
+  it("depth=3 emits great-circle-waypoint with participants array", () => {
+    // Three equatorial cities; the middle one lies on the great-circle arc
+    // between the outer two. Engine should emit one waypoint connection.
+    const nodes = [
+      locNode("a", "West", 0, 0),
+      locNode("b", "Middle", 0, 30),
+      locNode("c", "East", 0, 60),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 3 });
+    const w = conns.find((c) => c.kind === "great-circle-waypoint");
+    expect(w).toBeTruthy();
+    expect(w.participants.length).toBe(3);
+  });
+
+  it("depth=3 magnetic-pole fires when both locations are within 1500km of a pole", () => {
+    const nodes = [
+      locNode("a", "Arctic A", 86, 140), // close to north magnetic pole
+      locNode("b", "Arctic B", 84, 130),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 3 });
+    const m = conns.find((c) => c.kind === "magnetic-pole");
+    expect(m).toBeTruthy();
+    expect(m.pole).toBe("north");
+  });
+
+  it("depth=3 elevation-band fires for two locations in the same band above 500m", () => {
+    const nodes = [
+      locNode("a", "High City", 39, -106, { numbers: { "elevation (m)": 1700 } }),
+      locNode("b", "High Town", 47, 12, { numbers: { "elevation (m)": 1900 } }),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 3 });
+    const e = conns.find((c) => c.kind === "elevation-band");
+    expect(e).toBeTruthy();
+    expect(e.band).toBe("high altitude");
+  });
+
+  it("depth=3 elevation-band does NOT fire when one location is sea-level", () => {
+    const nodes = [
+      locNode("a", "High City", 39, -106, { numbers: { "elevation (m)": 1700 } }),
+      locNode("b", "Coastal", 47, 12, { numbers: { "elevation (m)": 50 } }),
+    ];
+    expect(findKinds(nodes, { geographicDepth: 3 })).not.toContain("elevation-band");
+  });
+
+  it("depth=3 widens ley-line tolerance to 1.5° and adds triangles missed at depth=2", () => {
+    // p2 deviates 0.3° in lng with a 30° lat baseline. isLeyLine's metric
+    // (cross-product magnitude / v1.length) yields ~0.6 — above the strict
+    // 0.5° but below the loose 1.5°. So depth=2 misses this; depth=3 catches.
+    const nodes = [
+      locNode("a", "P1", 0, 10),
+      locNode("b", "P2", 30, 10.3),
+      locNode("c", "P3", 60, 10),
+    ];
+    const strict = findConnections(nodes, { geographicDepth: 2 });
+    const loose = findConnections(nodes, { geographicDepth: 3 });
+    expect(strict.filter((c) => c.kind === "ley-line-triangle").length).toBe(0);
+    const tri = loose.filter((c) => c.kind === "ley-line-triangle");
+    expect(tri.length).toBe(1);
+    expect(tri[0].tolerance).toBe("loose");
+  });
+
+  it("layers stack: a pair antipodal AND in same time zone produces both findings", () => {
+    // Construct a forced same-tz antipodal pair. Antipode of (40, 100) is
+    // (-40, -80); UTC offsets are 7 vs -5, normally different. Shift to
+    // longitudes that DO share rounding: e.g. (40, 90) and antipode
+    // (-40, -90), which give offsets 6 and -6 — still different. Real
+    // antipodes generally don't share tz; this test instead asserts the
+    // separate-findings behavior using two separate pairs.
+    const nodes = [
+      locNode("a", "AntiA", 40, 100),
+      locNode("b", "AntiB", -40, -80), // antipodal with a
+      locNode("c", "TzA", 0, 75),       // same-tz with d
+      locNode("d", "TzB", 60, 76),
+    ];
+    const conns = findConnections(nodes, { geographicDepth: 2 });
+    const kinds = conns.map((c) => c.kind);
+    expect(kinds).toContain("antipodal-match");
+    expect(kinds).toContain("time-zone-match");
+  });
+});
+
 describe("connections.config — STRENGTH has every key the engine references", () => {
   // Catches typos when someone adds a new connection kind with a constant
   // that doesn't exist on the STRENGTH map (would silently produce strength=undefined).
@@ -633,7 +805,9 @@ describe("connections.config — STRENGTH has every key the engine references", 
     "LEXICAL_PHONETIC", "LEXICAL_PARTIAL_ANAGRAM", "LEXICAL_TRIGRAM",
     "LEXICAL_STEM", "LEXICAL_HOMOGLYPH", "LEXICAL_REVERSE",
     "NAME_MENTION", "NAME_IN_FILENAME", "TODAY_MENTION",
-    "COLOR_MATCH", "DISTANCE", "DISTANCE_MATCH", "LEY_LINE",
+    "COLOR_MATCH", "DISTANCE", "DISTANCE_MATCH", "LEY_LINE", "LEY_LINE_TRIANGLE",
+    "GEO_ANTIPODAL", "GEO_TIMEZONE", "GEO_SAME_COUNTRY",
+    "GEO_GREAT_CIRCLE", "GEO_MAGNETIC_POLE", "GEO_ELEVATION_BAND",
   ];
   it.each(requiredKeys)("STRENGTH.%s is a finite number in [0,1]", (key) => {
     const v = STRENGTH[key];

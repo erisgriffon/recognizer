@@ -66,11 +66,15 @@ export default function Recognizer() {
   // (anagrams + word overlap + letter freq), 2 = Standard (+ phonetic, partial
   // anagram, trigram), 3 = Deep (+ stems, homoglyphs, reverse spelling).
   // Default 1 = today's behavior.
+  // geographicDepth: 0 = Off, 1 = Surface (distance + pairwise ley-lines),
+  // 2 = Standard (+ ley-line dedup, antipodes, time zones, country),
+  // 3 = Deep (+ great-circle waypoints, magnetic poles, elevation bands).
+  // Default 1 = today's behavior.
   const [settings, setSettings] = useState({
     numerologyDepth: 1,
     lexicalDepth: 1,
     astrologyDepth: 1,
-    enableLeyLines: true,
+    geographicDepth: 1,
     devMode: false,
   });
 
@@ -377,6 +381,8 @@ export default function Recognizer() {
       type: "location",
       name: loc.name, fullName: loc.fullName,
       lat: loc.lat, lng: loc.lng, placeType: loc.type,
+      country: loc.country || null,
+      countryCode: loc.countryCode || null,
       summary: wiki?.extract?.slice(0, 220) || null,
       rawExtract: wiki?.extract || null,
       description: wiki?.description || null,
@@ -836,16 +842,23 @@ export default function Recognizer() {
                 <option value={3}>Deep (+ stems, homoglyphs, reverse spelling)</option>
               </select>
             </label>
-            {[
-              ["enableLeyLines", "Ley-line geographic alignments"],
-            ].map(([key, label]) => (
-              <label key={key} style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
-                <input type="checkbox" checked={settings[key]}
-                  onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.checked }))}
-                  style={{ marginRight: 10, accentColor: "#aa1e1e" }} />
-                {label}
-              </label>
-            ))}
+            <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
+              <span style={{ marginRight: 10, minWidth: 200 }}>Geographic depth:</span>
+              <select
+                value={settings.geographicDepth}
+                onChange={(e) => setSettings((s) => ({ ...s, geographicDepth: parseInt(e.target.value, 10) }))}
+                style={{
+                  background: "#0f0a06", border: "1px solid #6b4a2a",
+                  color: "#e8dcc4", padding: "4px 8px", fontSize: 12,
+                  fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                <option value={0}>Off</option>
+                <option value={1}>Surface (distance, ley-lines)</option>
+                <option value={2}>Standard (+ antipodes, time zones, country)</option>
+                <option value={3}>Deep (+ great-circle, magnetic, elevation)</option>
+              </select>
+            </label>
             <div style={{ borderTop: "1px dotted #6b4a2a", marginTop: 12, paddingTop: 12 }}>
               <p style={{ fontSize: 11, opacity: 0.7, margin: "0 0 8px" }}>
                 Diagnostics — for debugging extraction issues:

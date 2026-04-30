@@ -60,7 +60,7 @@ describe("pruneSettings", () => {
       numerologyDepth: 1,
       lexicalDepth: 1,
       astrologyDepth: 1,
-      enableLeyLines: true,
+      geographicDepth: 1,
       devMode: false,
     })).toEqual({});
   });
@@ -70,7 +70,7 @@ describe("pruneSettings", () => {
       numerologyDepth: 3,
       lexicalDepth: 1,
       astrologyDepth: 0,
-      enableLeyLines: true,
+      geographicDepth: 1,
       devMode: false,
     })).toEqual({ numerologyDepth: 3, astrologyDepth: 0 });
   });
@@ -93,7 +93,7 @@ describe("serializeCaseFile", () => {
       numerologyDepth: 1,
       lexicalDepth: 1,
       astrologyDepth: 1,
-      enableLeyLines: true,
+      geographicDepth: 1,
       devMode: false,
     });
     expect(out).not.toHaveProperty("s");
