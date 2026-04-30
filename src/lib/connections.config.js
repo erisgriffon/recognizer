@@ -22,6 +22,20 @@ export const STRENGTH = {
   WORDCOUNT_YEAR: 0.95,
   WEEKDAY_CLUSTER: 0.7,
   ASTROLOGY: 0.45,
+  ASTROLOGY_MODALITY: 0.45,
+  ASTROLOGY_RULER: 0.50,
+  ASTROLOGY_RETROGRADE: 0.55,
+  // Per-aspect strengths. Aspects are flavor, not revelation — all sit at or
+  // below NEAR (0.6), so they land NOTABLE-tier or below in the dossier.
+  // Conjunction is "interesting but expected" given only 12 signs exist;
+  // opposition is the strongest because it's the most geometrically specific
+  // (only one sign in the wheel opposes another); sextile is the weakest
+  // because a 60° relationship is, frankly, not that wild.
+  ASTROLOGY_ASPECT_CONJUNCTION: 0.55,
+  ASTROLOGY_ASPECT_SEXTILE: 0.40,
+  ASTROLOGY_ASPECT_SQUARE: 0.50,
+  ASTROLOGY_ASPECT_TRINE: 0.55,
+  ASTROLOGY_ASPECT_OPPOSITION: 0.60,
   NAME_MENTION: 0.9,
   NAME_IN_FILENAME: 0.9,
   TODAY_MENTION: 0.95,

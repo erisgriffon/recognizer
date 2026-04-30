@@ -59,7 +59,7 @@ describe("pruneSettings", () => {
     expect(pruneSettings({
       numerologyDepth: 1,
       enableAnagrams: true,
-      enableAstrology: true,
+      astrologyDepth: 1,
       enableLeyLines: true,
       devMode: false,
     })).toEqual({});
@@ -69,10 +69,10 @@ describe("pruneSettings", () => {
     expect(pruneSettings({
       numerologyDepth: 3,
       enableAnagrams: true,
-      enableAstrology: false,
+      astrologyDepth: 0,
       enableLeyLines: true,
       devMode: false,
-    })).toEqual({ numerologyDepth: 3, enableAstrology: false });
+    })).toEqual({ numerologyDepth: 3, astrologyDepth: 0 });
   });
 
   it("tolerates missing or undefined input", () => {
@@ -92,7 +92,7 @@ describe("serializeCaseFile", () => {
     const out = serializeCaseFile([{ type: "name", name: "Tesla" }], {
       numerologyDepth: 1,
       enableAnagrams: true,
-      enableAstrology: true,
+      astrologyDepth: 1,
       enableLeyLines: true,
       devMode: false,
     });

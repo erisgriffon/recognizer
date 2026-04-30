@@ -1,6 +1,10 @@
 import { haversineKm, isLeyLine } from "./geo.js";
 import { anagramSignature, multisetEditDistance } from "./numerology.js";
-import { ZODIAC_ELEMENTS, zodiacCompatible } from "./astrology.js";
+import {
+  ZODIAC_ELEMENTS, ZODIAC_MODALITIES, zodiacCompatible,
+  modalityCompatible, sharedRuler, aspectBetween, isMercuryRetrograde,
+} from "./astrology.js";
+import { parseDate } from "./dates.js";
 import { colorDistance } from "./extractors/image.js";
 import { STRENGTH, TIERS, NUMERIC_THRESHOLDS } from "./connections.config.js";
 
@@ -11,7 +15,7 @@ export const findConnections = (nodes, settings = {}) => {
   const {
     numerologyDepth = 1,
     enableAnagrams = true,
-    enableAstrology = true,
+    astrologyDepth = 1,
     enableLeyLines = true,
   } = settings;
 
@@ -270,8 +274,16 @@ export const findConnections = (nodes, settings = {}) => {
     }
   });
 
-  // ---- Astrology compatibility ----
-  if (enableAstrology) {
+  // ---- Astrology ----
+  // Depth tiers: 0 = off, 1 = elements only (Surface), 2 = + modality + ruler
+  // (Standard), 3 = + aspects + Mercury retrograde (Deep). Default is 1
+  // (Surface) — same behavior as the old enableAstrology=true. Unlike
+  // numerology's Pythagorean/Chaldean double-match collapse, astrology's
+  // layers stack rather than merge: two signs sharing element AND modality
+  // AND ruler emit three separate findings, which is exactly what the
+  // investigator would do — list them individually as a way of piling on.
+
+  if (astrologyDepth >= 1) {
     const zodiacNodes = nodes.filter((n) => n.zodiac);
     for (let i = 0; i < zodiacNodes.length; i++) {
       for (let j = i + 1; j < zodiacNodes.length; j++) {
@@ -284,6 +296,77 @@ export const findConnections = (nodes, settings = {}) => {
             element: ZODIAC_ELEMENTS[a.zodiac],
           });
         }
+      }
+    }
+  }
+
+  if (astrologyDepth >= 2) {
+    const zodiacNodes = nodes.filter((n) => n.zodiac);
+    for (let i = 0; i < zodiacNodes.length; i++) {
+      for (let j = i + 1; j < zodiacNodes.length; j++) {
+        const a = zodiacNodes[i], b = zodiacNodes[j];
+        if (modalityCompatible(a.zodiac, b.zodiac)) {
+          connections.push({
+            from: a.id, to: b.id, strength: STRENGTH.ASTROLOGY_MODALITY,
+            kind: "astrology-modality",
+            a: { nodeName: a.name, zodiac: a.zodiac },
+            b: { nodeName: b.name, zodiac: b.zodiac },
+            modality: ZODIAC_MODALITIES[a.zodiac],
+          });
+        }
+        const planet = sharedRuler(a.zodiac, b.zodiac);
+        if (planet) {
+          connections.push({
+            from: a.id, to: b.id, strength: STRENGTH.ASTROLOGY_RULER,
+            kind: "astrology-ruler",
+            a: { nodeName: a.name, zodiac: a.zodiac },
+            b: { nodeName: b.name, zodiac: b.zodiac },
+            planet,
+          });
+        }
+      }
+    }
+  }
+
+  if (astrologyDepth >= 3) {
+    // Aspects: pairwise, includes same-sign (conjunction). Per-aspect strength
+    // lives in connections.config.js — keyed by uppercased aspect name.
+    const zodiacNodes = nodes.filter((n) => n.zodiac);
+    for (let i = 0; i < zodiacNodes.length; i++) {
+      for (let j = i + 1; j < zodiacNodes.length; j++) {
+        const a = zodiacNodes[i], b = zodiacNodes[j];
+        const aspect = aspectBetween(a.zodiac, b.zodiac);
+        if (!aspect) continue;
+        const key = `ASTROLOGY_ASPECT_${aspect.name.toUpperCase()}`;
+        connections.push({
+          from: a.id, to: b.id, strength: STRENGTH[key],
+          kind: "astrology-aspect",
+          a: { nodeName: a.name, zodiac: a.zodiac },
+          b: { nodeName: b.name, zodiac: b.zodiac },
+          aspect,
+        });
+      }
+    }
+
+    // Mercury retrograde: pairwise across any two date-bearing nodes whose
+    // dates both fall in retrograde windows. Date sources: explicit date
+    // nodes carry isoDate; today nodes carry isoDate; name nodes carry
+    // birthDate (from Wikidata extraction). The engine treats either as
+    // the date-of-record for retrograde purposes.
+    const dateBearingNodes = nodes
+      .map((n) => ({ node: n, iso: n.isoDate || n.birthDate || null }))
+      .filter((x) => x.iso)
+      .map((x) => ({ node: x.node, iso: x.iso, retrograde: isMercuryRetrograde(parseDate(x.iso)) }))
+      .filter((x) => x.retrograde);
+    for (let i = 0; i < dateBearingNodes.length; i++) {
+      for (let j = i + 1; j < dateBearingNodes.length; j++) {
+        const a = dateBearingNodes[i], b = dateBearingNodes[j];
+        connections.push({
+          from: a.node.id, to: b.node.id, strength: STRENGTH.ASTROLOGY_RETROGRADE,
+          kind: "astrology-retrograde",
+          a: { nodeName: a.node.name, isoDate: a.iso, retrogradeRange: `${a.retrograde.start}–${a.retrograde.end}` },
+          b: { nodeName: b.node.name, isoDate: b.iso, retrogradeRange: `${b.retrograde.start}–${b.retrograde.end}` },
+        });
       }
     }
   }

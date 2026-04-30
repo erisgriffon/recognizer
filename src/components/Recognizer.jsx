@@ -59,10 +59,12 @@ export default function Recognizer() {
   // Settings — soft connection toggles + dev tools.
   // numerologyDepth: 0 = Off, 1 = Surface (Pythagorean), 2 = Standard (+ Chaldean),
   // 3 = Deep (also reduces every numeric fact). Default 1 = today's behavior.
+  // astrologyDepth: 0 = Off, 1 = Surface (elements), 2 = Standard (+ modality + rulers),
+  // 3 = Deep (+ aspects + Mercury retrograde). Default 1 = today's behavior.
   const [settings, setSettings] = useState({
     numerologyDepth: 1,
     enableAnagrams: true,
-    enableAstrology: true,
+    astrologyDepth: 1,
     enableLeyLines: true,
     devMode: false,
   });
@@ -334,6 +336,7 @@ export default function Recognizer() {
     const node = {
       id: "date-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5),
       type: "date", name: `${label}: ${iso}`,
+      isoDate: inRange ? iso : null,
       zodiac: inRange ? zodiacOf(d) : null,
       dayOfWeek: inRange ? dayOfWeek(d) : null,
       moonPhase: inRange ? moonPhase(d) : null,
@@ -527,7 +530,16 @@ export default function Recognizer() {
     setNodes([]);
     setSelectedNodeId(null);
     if (caseFile.s) {
-      setSettings((prev) => ({ ...prev, ...caseFile.s }));
+      // Migrate legacy boolean enableAstrology to astrologyDepth so older
+      // shared URLs still apply the sender's intent (true → Surface, false → Off).
+      const incoming = { ...caseFile.s };
+      if ("enableAstrology" in incoming) {
+        if (!("astrologyDepth" in incoming)) {
+          incoming.astrologyDepth = incoming.enableAstrology ? 1 : 0;
+        }
+        delete incoming.enableAstrology;
+      }
+      setSettings((prev) => ({ ...prev, ...incoming }));
     }
     setLoading("Reconstructing case file…");
     for (const seed of caseFile.n) {

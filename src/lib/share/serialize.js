@@ -16,7 +16,7 @@
 const DEFAULT_SETTINGS = {
   numerologyDepth: 1,
   enableAnagrams: true,
-  enableAstrology: true,
+  astrologyDepth: 1,
   enableLeyLines: true,
   devMode: false,
 };
