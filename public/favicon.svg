@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Aged-paper background. Same warm tan the app uses. -->
+  <rect width="32" height="32" fill="#e8dcc4"/>
+  <!-- Faint paper noise — single subtle stain blob, mostly invisible at 16×16. -->
+  <circle cx="22" cy="8" r="3.5" fill="#d6c4a4" opacity="0.4"/>
+  <!-- Pushpin shadow on the paper. Slight oval, soft. -->
+  <ellipse cx="17" cy="19" rx="9" ry="2.5" fill="#000" opacity="0.18"/>
+  <!-- Pushpin head — main red disc. Recognizer's blood-red. -->
+  <circle cx="16" cy="14" r="9" fill="#aa1e1e"/>
+  <!-- Highlight crescent — sells the pushpin-as-3D read. -->
+  <path d="M 10 11 A 7 7 0 0 1 17 7" stroke="#ff6a6a" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <!-- Center dimple — the head's pinch point. -->
+  <circle cx="16" cy="14" r="2" fill="#6b1414"/>
+  <circle cx="16" cy="14" r="0.9" fill="#3a0a0a"/>
+</svg>
