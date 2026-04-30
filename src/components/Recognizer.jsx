@@ -18,7 +18,7 @@ import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.
 
 import { serializeCaseFile } from "../lib/share/serialize.js";
 import { buildPlaceholderMediaNode, isValidCaseFile } from "../lib/share/deserialize.js";
-import { encodeCaseFileToFragment, URL_LENGTH_BUDGET } from "../lib/share/url.js";
+import { encodeCaseFileToFragment, decodeCaseFileFromFragment, URL_LENGTH_BUDGET } from "../lib/share/url.js";
 
 import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor, connectionsForNode } from "../lib/connections.js";
 import { TIERS } from "../lib/connections.config.js";
@@ -572,6 +572,21 @@ export default function Recognizer() {
     }
     setLoading(null);
   };
+
+  // Mount-time hash import: if the user landed on a #case=... URL, decode
+  // the seed and replay it through the existing adders. Bad/missing
+  // hashes silently no-op — the user just sees the empty starting state.
+  // After a successful decode we strip the hash via replaceState so a
+  // refresh doesn't re-import and the URL bar isn't permanently ugly.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const caseFile = decodeCaseFileFromFragment(hash);
+    if (!caseFile) return;
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    importCaseFile(caseFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const shareCaseFile = async () => {
     const caseFile = serializeCaseFile(effectiveNodes, settings);
