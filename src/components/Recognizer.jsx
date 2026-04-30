@@ -16,7 +16,7 @@ import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
 import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
 
-import { findConnections, strengthTier } from "../lib/connections.js";
+import { findConnections, strengthTier, sortConnectionsByStrength } from "../lib/connections.js";
 import { narrateConnection } from "../lib/narrative/connection.js";
 import { generateDossier } from "../lib/narrative/dossier.js";
 
@@ -81,7 +81,7 @@ export default function Recognizer() {
   const effectiveNodes = nodes;
 
   const connections = useMemo(
-    () => findConnections(effectiveNodes, settings),
+    () => sortConnectionsByStrength(findConnections(effectiveNodes, settings)),
     [effectiveNodes, settings]
   );
 

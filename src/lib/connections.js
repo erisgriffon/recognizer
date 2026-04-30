@@ -412,3 +412,10 @@ export const strengthTier = (s) => {
   for (const t of TIERS) if (s >= t.min) return t.name;
   return TIERS[TIERS.length - 1].name;
 };
+
+// Presentation helpers. The engine itself stays pure — ordering and filtering
+// are display concerns, kept here so both the React layer and tests share one
+// implementation. Array.prototype.sort is stable in current engines, so equal-
+// strength findings preserve insertion order.
+export const sortConnectionsByStrength = (connections) =>
+  [...connections].sort((a, b) => b.strength - a.strength);

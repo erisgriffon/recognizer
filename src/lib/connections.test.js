@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findConnections, strengthTier } from "./connections.js";
+import { findConnections, strengthTier, sortConnectionsByStrength } from "./connections.js";
 import { STRENGTH, TIERS } from "./connections.config.js";
 
 // Tiny node factory — only the fields the engine actually reads.
@@ -297,5 +297,46 @@ describe("connections.config — STRENGTH has every key the engine references", 
     for (let i = 1; i < TIERS.length; i++) {
       expect(TIERS[i - 1].min).toBeGreaterThanOrEqual(TIERS[i].min);
     }
+  });
+});
+
+describe("sortConnectionsByStrength — presentation-layer ordering", () => {
+  it("returns connections sorted by strength descending", () => {
+    const input = [
+      { from: "a", to: "b", strength: 0.4, kind: "multiple" },
+      { from: "c", to: "d", strength: 1.0, kind: "exact" },
+      { from: "e", to: "f", strength: 0.6, kind: "near" },
+      { from: "g", to: "h", strength: 0.85, kind: "numerology" },
+    ];
+    const sorted = sortConnectionsByStrength(input);
+    const strengths = sorted.map((c) => c.strength);
+    for (let i = 1; i < strengths.length; i++) {
+      expect(strengths[i - 1]).toBeGreaterThanOrEqual(strengths[i]);
+    }
+    expect(strengths).toEqual([1.0, 0.85, 0.6, 0.4]);
+  });
+
+  it("preserves insertion order for equal-strength connections (stable sort)", () => {
+    const input = [
+      { from: "a", to: "b", strength: 0.6, kind: "near", tag: "first" },
+      { from: "c", to: "d", strength: 0.9, kind: "exact", tag: "middle" },
+      { from: "e", to: "f", strength: 0.6, kind: "near", tag: "second" },
+      { from: "g", to: "h", strength: 0.6, kind: "near", tag: "third" },
+    ];
+    const sorted = sortConnectionsByStrength(input);
+    expect(sorted.map((c) => c.tag)).toEqual(["middle", "first", "second", "third"]);
+  });
+
+  it("handles an empty array without throwing", () => {
+    expect(sortConnectionsByStrength([])).toEqual([]);
+  });
+
+  it("does not mutate its input", () => {
+    const input = [
+      { strength: 0.4 }, { strength: 1.0 }, { strength: 0.6 },
+    ];
+    const snapshot = input.map((c) => c.strength);
+    sortConnectionsByStrength(input);
+    expect(input.map((c) => c.strength)).toEqual(snapshot);
   });
 });
