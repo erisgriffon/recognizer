@@ -6,6 +6,7 @@ import { DEMO_SET, RANDOM_POOLS, randomItem } from "../data/pools.js";
 import { tokenize, sample } from "../lib/utils.js";
 import { pythagoreanNumerologyOf, chaldeanNumerologyOf } from "../lib/numerology.js";
 import { parseDate, isInRange, zodiacOf, dayOfWeek, moonPhase, dateFacts } from "../lib/dates.js";
+import { ZODIAC_MODALITIES, ZODIAC_RULERS, isMercuryRetrograde } from "../lib/astrology.js";
 import { geocode, reverseGeocode, locationFacts } from "../lib/geo.js";
 
 import { findCapitalizedNames, findRepeatedPhrases, wordFrequency, letterFrequency } from "../lib/extractors/text.js";
@@ -806,9 +807,25 @@ export default function Recognizer() {
                 <option value={3}>Deep (also reduces every numeric fact)</option>
               </select>
             </label>
+            <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
+              <span style={{ marginRight: 10, minWidth: 200 }}>Astrology depth:</span>
+              <select
+                value={settings.astrologyDepth}
+                onChange={(e) => setSettings((s) => ({ ...s, astrologyDepth: parseInt(e.target.value, 10) }))}
+                style={{
+                  background: "#0f0a06", border: "1px solid #6b4a2a",
+                  color: "#e8dcc4", padding: "4px 8px", fontSize: 12,
+                  fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                <option value={0}>Off</option>
+                <option value={1}>Surface (elements only)</option>
+                <option value={2}>Standard (+ modality, rulers)</option>
+                <option value={3}>Deep (+ aspects, Mercury retrograde)</option>
+              </select>
+            </label>
             {[
               ["enableAnagrams", "Anagram and near-anagram detection"],
-              ["enableAstrology", "Astrological elemental compatibility"],
               ["enableLeyLines", "Ley-line geographic alignments"],
             ].map(([key, label]) => (
               <label key={key} style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
@@ -1058,6 +1075,34 @@ export default function Recognizer() {
                         </td>
                       </tr>
                     )}
+                    {settings.astrologyDepth >= 2 && node.zodiac && ZODIAC_MODALITIES[node.zodiac] && (
+                      <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
+                        <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>modality</td>
+                        <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
+                          {ZODIAC_MODALITIES[node.zodiac]}
+                        </td>
+                      </tr>
+                    )}
+                    {settings.astrologyDepth >= 2 && node.zodiac && ZODIAC_RULERS[node.zodiac] && (
+                      <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
+                        <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>ruling planet</td>
+                        <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
+                          {ZODIAC_RULERS[node.zodiac]}
+                        </td>
+                      </tr>
+                    )}
+                    {settings.astrologyDepth >= 3 && (node.isoDate || node.birthDate) && (() => {
+                      const retro = isMercuryRetrograde(parseDate(node.isoDate || node.birthDate));
+                      if (!retro) return null;
+                      return (
+                        <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
+                          <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>Mercury retrograde</td>
+                          <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
+                            {retro.start} – {retro.end}
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </tbody>
                 </table>
               </div>
