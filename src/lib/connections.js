@@ -425,3 +425,8 @@ export const sortConnectionsByStrength = (connections) =>
 // (astrology depth, etc.) participate without changes here.
 export const filterByStrengthFloor = (connections, floor) =>
   connections.filter((c) => c.strength >= floor);
+
+// Connections incident to a given node. Operates on from/to only — kind-
+// agnostic, so it works with any future connection category.
+export const connectionsForNode = (connections, nodeId) =>
+  connections.filter((c) => c.from === nodeId || c.to === nodeId);

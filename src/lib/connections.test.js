@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor } from "./connections.js";
+import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor, connectionsForNode } from "./connections.js";
 import { STRENGTH, TIERS } from "./connections.config.js";
 
 // Tiny node factory — only the fields the engine actually reads.
@@ -374,5 +374,44 @@ describe("filterByStrengthFloor — strength-floor filter", () => {
     const snapshot = sample.map((c) => c.strength);
     filterByStrengthFloor(sample, 0.9);
     expect(sample.map((c) => c.strength)).toEqual(snapshot);
+  });
+});
+
+describe("connectionsForNode — incident-edge selector", () => {
+  const sample = [
+    { from: "n1", to: "n2", strength: 1.0, kind: "exact" },
+    { from: "n3", to: "n1", strength: 0.7, kind: "weekday-cluster" },
+    { from: "n2", to: "n3", strength: 0.5, kind: "near-anagram" },
+    { from: "n4", to: "n5", strength: 0.85, kind: "numerology" },
+  ];
+
+  it("returns connections where the node is the from-end or to-end", () => {
+    const out = connectionsForNode(sample, "n1");
+    expect(out).toHaveLength(2);
+    expect(out.every((c) => c.from === "n1" || c.to === "n1")).toBe(true);
+  });
+
+  it("returns an empty array for a node with no incident connections", () => {
+    expect(connectionsForNode(sample, "nonexistent")).toEqual([]);
+  });
+
+  it("composes with strength-floor filter (selection on filtered set)", () => {
+    // Strength filter first (>= 0.7), then incident-to-n1.
+    const filtered = filterByStrengthFloor(sample, 0.7);
+    const out = connectionsForNode(filtered, "n1");
+    expect(out.map((c) => c.kind)).toEqual(["exact", "weekday-cluster"]);
+  });
+
+  it("composes the other order (incident first, then strength) to the same result", () => {
+    // Order shouldn't matter for the AND of two predicates.
+    const incident = connectionsForNode(sample, "n1");
+    const out = filterByStrengthFloor(incident, 0.7);
+    expect(out.map((c) => c.kind)).toEqual(["exact", "weekday-cluster"]);
+  });
+
+  it("returns empty when filter and selection have no overlap", () => {
+    // n4 has only one connection (strength 0.85). Floor at 0.9 leaves nothing.
+    const filtered = filterByStrengthFloor(sample, 0.9);
+    expect(connectionsForNode(filtered, "n4")).toEqual([]);
   });
 });

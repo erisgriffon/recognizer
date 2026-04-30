@@ -16,7 +16,7 @@ import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
 import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
 
-import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor } from "../lib/connections.js";
+import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor, connectionsForNode } from "../lib/connections.js";
 import { TIERS } from "../lib/connections.config.js";
 import { narrateConnection } from "../lib/narrative/connection.js";
 import { generateDossier } from "../lib/narrative/dossier.js";
@@ -35,6 +35,7 @@ export default function Recognizer() {
   const [nodes, setNodes] = useState([]);
   const [view, setView] = useState("corkboard");
   const [strengthFloor, setStrengthFloor] = useState(0);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
 
   // Inputs
   const [nameInput, setNameInput] = useState("");
@@ -89,11 +90,26 @@ export default function Recognizer() {
 
   // visibleConnections is the in-app display subset. The dossier always uses
   // the full `connections` array — the filter is a viewing convenience, the
-  // dossier is a complete record.
-  const visibleConnections = useMemo(
-    () => filterByStrengthFloor(connections, strengthFloor),
-    [connections, strengthFloor]
-  );
+  // dossier is a complete record. Pipeline: strength floor → selected node.
+  const visibleConnections = useMemo(() => {
+    let result = filterByStrengthFloor(connections, strengthFloor);
+    if (selectedNodeId) result = connectionsForNode(result, selectedNodeId);
+    return result;
+  }, [connections, strengthFloor, selectedNodeId]);
+
+  // If the selected node gets removed (or never existed), clear the selection
+  // so the indicator doesn't show a phantom name.
+  useEffect(() => {
+    if (selectedNodeId && !effectiveNodes.find((n) => n.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [effectiveNodes, selectedNodeId]);
+
+  // Clicking a node toggles selection; clicking an already-selected node or
+  // empty corkboard space clears it.
+  const handleNodeClick = (id) => {
+    setSelectedNodeId((prev) => (prev === id ? null : id));
+  };
 
   // Hint computation: would promoting today reveal anything? Run the engine on
   // a hypothetical promoted-today set and surface any connections that touch it.
@@ -731,7 +747,12 @@ export default function Recognizer() {
         {view === "corkboard" && (
           <div style={{ marginBottom: 24, textAlign: "center" }}>
             {effectiveNodes.length > 0
-              ? <ConnectionMap nodes={effectiveNodes} connections={connections} />
+              ? <ConnectionMap
+                  nodes={effectiveNodes}
+                  connections={connections}
+                  selectedNodeId={selectedNodeId}
+                  onNodeClick={handleNodeClick}
+                />
               : <div style={emptyState}>▣ NO EVIDENCE SUBMITTED ▣<br />
                   <span style={{ fontSize: 11, opacity: 0.7 }}>Try the sample investigation, or randomize, or submit your own.</span>
                 </div>
@@ -901,6 +922,30 @@ export default function Recognizer() {
 
         {connections.length > 0 && (
           <div style={{ marginBottom: 24 }}>
+            {selectedNodeId && (() => {
+              const node = effectiveNodes.find((n) => n.id === selectedNodeId);
+              if (!node) return null;
+              return (
+                <div style={{
+                  padding: "8px 12px", marginBottom: 8,
+                  background: "rgba(170, 30, 30, 0.15)",
+                  border: "1px dashed #aa1e1e",
+                  fontSize: 12,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  flexWrap: "wrap", gap: 8,
+                }}>
+                  <span>
+                    ⌖ Viewing connections for: <strong>{node.name}</strong>
+                  </span>
+                  <button
+                    onClick={() => setSelectedNodeId(null)}
+                    style={{ ...buttonStyle, padding: "2px 8px", fontSize: 10 }}
+                  >
+                    ✕ CLEAR
+                  </button>
+                </div>
+              );
+            })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
               <h3 style={{ ...sectionHeader, marginBottom: 0 }}>
                 ↯ CROSS-REFERENCES DETECTED (
@@ -932,7 +977,9 @@ export default function Recognizer() {
             </div>
             {visibleConnections.length === 0 ? (
               <div style={{ textAlign: "center", padding: 20, opacity: 0.5, fontSize: 12, fontStyle: "italic" }}>
-                No findings at this strength level. Try lowering the floor.
+                {selectedNodeId
+                  ? "No findings for the selected node at this strength level."
+                  : "No findings at this strength level. Try lowering the floor."}
               </div>
             ) : (
               visibleConnections.map((c, i) => {
