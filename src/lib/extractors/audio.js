@@ -1,4 +1,4 @@
-import jsmediatags from "jsmediatags";
+import jsmediatags from "jsmediatags/dist/jsmediatags.min.js";
 
 export const analyzeAudio = async (file) => {
   const filename = file.name;
