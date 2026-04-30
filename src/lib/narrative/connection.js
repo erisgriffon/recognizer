@@ -119,6 +119,24 @@ export const rephrasers = {
   distance: (c) => `the great-circle distance between ${c.a.nodeName} and ${c.b.nodeName} is precisely ${c.km} kilometres — a figure which, for the moment, the investigator merely records`,
   "distance-match": (c) => `the great-circle distance from ${c.a.nodeName} to ${c.otherLocation} measures ${c.a.value} kilometres — exactly equal to the ${c.b.label} of ${c.b.nodeName}. The reader will note that distance, by nature, knows nothing of audio file durations or page counts`,
   "ley-line": (c) => `${c.triangle.join(", ")} fall on a near-perfect great-circle alignment. Such collinearity, in the literature on the subject, is referred to as a ley line. The investigator does not endorse this terminology, but acknowledges the geometry`,
+  "ley-line-triangle": (c) => `${c.triangle.join(", ")} fall along a single near-collinear arc on the Earth's surface. Such alignments — referred to in some literatures as "ley lines" — are the subject of considerable folkloric speculation. The investigator does not endorse the terminology but acknowledges the geometry`,
+  "antipodal-match": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} are diametrically opposite each other on the surface of the Earth — separated by precisely (or nearly so) 180 degrees of arc, the maximum possible distance between two points on a sphere. The investigator regards this as the most extreme form of geographic coincidence`,
+  "time-zone-match": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} occupy the same approximate time zone (UTC${c.offset >= 0 ? "+" : ""}${c.offset}). Despite their geographic separation, dawn arrives at both locations within minutes of each other`,
+  "same-country": (c) => {
+    const seed = (c.country || "").length * 5 + c.a.nodeName.length;
+    return pick([
+      `${c.a.nodeName} and ${c.b.nodeName} both lie within the borders of ${c.country}. The investigator notes this for the record`,
+      `geopolitically, ${c.a.nodeName} and ${c.b.nodeName} share a common state — ${c.country} — and are therefore subject to the same legal jurisdiction`,
+    ], seed);
+  },
+  "great-circle-waypoint": (c) =>
+    `${c.a.nodeName}, ${c.b.nodeName}, and ${c.c.nodeName} fall along a single great-circle route. ${c.b.nodeName} lies, within tolerance, on the shortest spherical path between ${c.a.nodeName} and ${c.c.nodeName}. Any aircraft flying between the latter two locations would, by default, pass over the first`,
+  "magnetic-pole": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} both lie within the magnetic field anomaly surrounding the ${c.pole} magnetic pole — an active geomagnetic feature distinct from the geographic pole. The investigator notes that compass needles in both locations are subject to substantial deviation`,
+  "elevation-band": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} both rise to ${c.band}. The thin air at such elevations has been claimed, in some traditions, to be conducive to spiritual revelation — though the investigator declines to evaluate that claim`,
   "color-match": (c) => `a dominant colour of ${c.a.nodeName} (${c.a.hex}) is visually indistinguishable from a dominant colour of ${c.b.nodeName} (${c.b.hex}). Two unrelated images converging on the same chromatic signature is a rare event`,
   anagram: (c) => `the letters of ${c.a.nodeName.toUpperCase()}, rearranged, spell ${c.b.nodeName.toUpperCase()}. The investigator declines to speculate further`,
   "near-anagram": (c) => `${c.a.nodeName.toUpperCase()} and ${c.b.nodeName.toUpperCase()} differ by only ${written(c.distance)} letter${c.distance === 1 ? "" : "s"} when reduced to their constituent characters. A near-anagram of this proximity, in the absence of common etymology, is suspect`,
