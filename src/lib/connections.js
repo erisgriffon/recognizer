@@ -9,7 +9,7 @@ import { STRENGTH, TIERS, NUMERIC_THRESHOLDS } from "./connections.config.js";
 
 export const findConnections = (nodes, settings = {}) => {
   const {
-    enableNumerology = true,
+    numerologyDepth = 1,
     enableAnagrams = true,
     enableAstrology = true,
     enableLeyLines = true,
@@ -71,13 +71,17 @@ export const findConnections = (nodes, settings = {}) => {
   }
 
   // ---- Numerology ----
-  if (enableNumerology) {
-    const numerologyFacts = nodes
+  // Depth tiers: 0 = off, 1 = Pythagorean only, 2 = + Chaldean (with double-match
+  // collapse), 3 = + per-fact deep reduction. Default is 1 (Surface) — same
+  // behavior as the old enableNumerology=true.
+
+  if (numerologyDepth >= 1) {
+    const pythFacts = nodes
       .filter((n) => n.numerology?.pythagorean)
       .map((n) => ({ nodeId: n.id, nodeName: n.name, ...n.numerology.pythagorean }));
-    for (let i = 0; i < numerologyFacts.length; i++) {
-      for (let j = i + 1; j < numerologyFacts.length; j++) {
-        const a = numerologyFacts[i], b = numerologyFacts[j];
+    for (let i = 0; i < pythFacts.length; i++) {
+      for (let j = i + 1; j < pythFacts.length; j++) {
+        const a = pythFacts[i], b = pythFacts[j];
         if (a.reduced === b.reduced) {
           connections.push({
             from: a.nodeId, to: b.nodeId, strength: STRENGTH.NUMEROLOGY, kind: "numerology",
@@ -86,6 +90,77 @@ export const findConnections = (nodes, settings = {}) => {
             value: a.reduced,
           });
         }
+      }
+    }
+  }
+
+  if (numerologyDepth >= 2) {
+    // Chaldean uses a different letter table (1–8, 9 reserved), so it produces
+    // an independent value per node. When a pair already matches on Pythagorean
+    // *and* matches on Chaldean, collapse the two findings into a single
+    // higher-strength "numerology-double" — two ancient systems agreeing is
+    // funnier and more striking than two separate notes.
+    const chaldeanFacts = nodes
+      .filter((n) => n.numerology?.chaldean)
+      .map((n) => ({ nodeId: n.id, nodeName: n.name, ...n.numerology.chaldean }));
+    for (let i = 0; i < chaldeanFacts.length; i++) {
+      for (let j = i + 1; j < chaldeanFacts.length; j++) {
+        const a = chaldeanFacts[i], b = chaldeanFacts[j];
+        if (a.reduced !== b.reduced) continue;
+        const existingPyth = connections.find((c) =>
+          c.kind === "numerology" &&
+          ((c.from === a.nodeId && c.to === b.nodeId) ||
+           (c.from === b.nodeId && c.to === a.nodeId))
+        );
+        if (existingPyth) {
+          existingPyth.kind = "numerology-double";
+          existingPyth.strength = STRENGTH.NUMEROLOGY_DOUBLE;
+          existingPyth.chaldeanValue = a.reduced;
+          existingPyth.chaldean = { a, b };
+        } else {
+          connections.push({
+            from: a.nodeId, to: b.nodeId,
+            strength: STRENGTH.NUMEROLOGY_CHALDEAN, kind: "numerology-chaldean",
+            a: { ...a, label: "Chaldean numerology" },
+            b: { ...b, label: "Chaldean numerology" },
+            value: a.reduced,
+          });
+        }
+      }
+    }
+  }
+
+  if (numerologyDepth >= 3) {
+    // Reduce every numeric fact on every node to a single digit (NOT preserving
+    // master numbers — every value collapses all the way down). Match on shared
+    // reduced digits across nodes. Volume is the point: this is the unhinged tier.
+    const deepReduce = (n) => {
+      while (n > 9) n = String(n).split("").reduce((s, d) => s + parseInt(d, 10), 0);
+      return n;
+    };
+    const deepFacts = [];
+    for (const n of nodes) {
+      for (const [label, value] of Object.entries(n.numbers || {})) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) continue;
+        deepFacts.push({
+          nodeId: n.id, nodeName: n.name,
+          factLabel: label, originalValue: value,
+          reduced: deepReduce(Math.floor(value)),
+        });
+      }
+    }
+    for (let i = 0; i < deepFacts.length; i++) {
+      for (let j = i + 1; j < deepFacts.length; j++) {
+        const a = deepFacts[i], b = deepFacts[j];
+        if (a.nodeId === b.nodeId) continue;
+        if (a.reduced !== b.reduced) continue;
+        connections.push({
+          from: a.nodeId, to: b.nodeId,
+          strength: STRENGTH.NUMEROLOGY_DEEP, kind: "numerology-deep",
+          a: { nodeName: a.nodeName, factLabel: a.factLabel, originalValue: a.originalValue, reduced: a.reduced },
+          b: { nodeName: b.nodeName, factLabel: b.factLabel, originalValue: b.originalValue, reduced: b.reduced },
+          value: a.reduced,
+        });
       }
     }
   }

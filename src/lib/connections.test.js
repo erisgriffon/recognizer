@@ -86,12 +86,12 @@ describe("findConnections — non-numeric kinds", () => {
     expect(num.strength).toBe(0.85);
   });
 
-  it("settings.enableNumerology=false suppresses numerology connections", () => {
+  it("settings.numerologyDepth=0 suppresses numerology connections", () => {
     const nodes = [
       node("a", "name", "A", { numerology: { pythagorean: { sum: 1, reduced: 1, source: "A" }, chaldean: null, deepReduced: null } }),
       node("b", "name", "J", { numerology: { pythagorean: { sum: 1, reduced: 1, source: "J" }, chaldean: null, deepReduced: null } }),
     ];
-    expect(findKinds(nodes, { enableNumerology: false })).not.toContain("numerology");
+    expect(findKinds(nodes, { numerologyDepth: 0 })).not.toContain("numerology");
   });
 
   it("kind=anagram: two name nodes with identical letter multisets", () => {

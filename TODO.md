@@ -52,5 +52,10 @@ for "imperative library + React closures."
 
 ## Other deferred items
 
-(Add new TODOs here as they come up. Each entry should describe the issue,
-why it's deferred, and the options for fixing.)
+### favicon and proper meta tags
+
+### GitHub repo README
+
+### wire up `npm run preview` to test the production build locally before deploying
+
+### better sample investigation (tesla doesn't link to any of the other things)

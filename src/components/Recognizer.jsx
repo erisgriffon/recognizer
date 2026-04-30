@@ -48,9 +48,11 @@ export default function Recognizer() {
   const [showDossier, setShowDossier] = useState(false);
   const [warning, setWarning] = useState(null);
 
-  // Settings — soft connection toggles + dev tools
+  // Settings — soft connection toggles + dev tools.
+  // numerologyDepth: 0 = Off, 1 = Surface (Pythagorean), 2 = Standard (+ Chaldean),
+  // 3 = Deep (also reduces every numeric fact). Default 1 = today's behavior.
   const [settings, setSettings] = useState({
-    enableNumerology: true,
+    numerologyDepth: 1,
     enableAnagrams: true,
     enableAstrology: true,
     enableLeyLines: true,
@@ -537,7 +539,7 @@ export default function Recognizer() {
             onPromote={promoteToday}
             onReroll={rerollToday}
             rerollKey={todaySeed}
-            includeNumerology={settings.enableNumerology}
+            includeNumerology={settings.numerologyDepth >= 1}
             hints={todayHints}
           />
         )}
@@ -647,8 +649,13 @@ export default function Recognizer() {
             <p style={{ fontSize: 11, opacity: 0.7, margin: "0 0 10px" }}>
               Disable categories the investigator considers unscientific. (Or, alternatively, lean into them.)
             </p>
+            <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={settings.numerologyDepth >= 1}
+                onChange={(e) => setSettings((s) => ({ ...s, numerologyDepth: e.target.checked ? 1 : 0 }))}
+                style={{ marginRight: 10, accentColor: "#aa1e1e" }} />
+              Numerology (Pythagorean digit reduction)
+            </label>
             {[
-              ["enableNumerology", "Numerology (Pythagorean digit reduction)"],
               ["enableAnagrams", "Anagram and near-anagram detection"],
               ["enableAstrology", "Astrological elemental compatibility"],
               ["enableLeyLines", "Ley-line geographic alignments"],
@@ -823,7 +830,7 @@ export default function Recognizer() {
                         <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700 }}>{v}</td>
                       </tr>
                     ))}
-                    {settings.enableNumerology && node.numerology?.pythagorean && (
+                    {settings.numerologyDepth >= 1 && node.numerology?.pythagorean && (
                       <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
                         <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>numerology (Pythagorean)</td>
                         <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
