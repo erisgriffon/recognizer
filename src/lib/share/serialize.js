@@ -15,7 +15,7 @@
 // will always be serialized as "non-default" and bloat shared URLs.
 const DEFAULT_SETTINGS = {
   numerologyDepth: 1,
-  enableAnagrams: true,
+  lexicalDepth: 1,
   astrologyDepth: 1,
   enableLeyLines: true,
   devMode: false,

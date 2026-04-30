@@ -58,7 +58,7 @@ describe("pruneSettings", () => {
   it("returns an empty object when every setting is at its default", () => {
     expect(pruneSettings({
       numerologyDepth: 1,
-      enableAnagrams: true,
+      lexicalDepth: 1,
       astrologyDepth: 1,
       enableLeyLines: true,
       devMode: false,
@@ -68,7 +68,7 @@ describe("pruneSettings", () => {
   it("includes only keys that differ from the default", () => {
     expect(pruneSettings({
       numerologyDepth: 3,
-      enableAnagrams: true,
+      lexicalDepth: 1,
       astrologyDepth: 0,
       enableLeyLines: true,
       devMode: false,
@@ -91,7 +91,7 @@ describe("serializeCaseFile", () => {
   it("omits the s key entirely when settings are all defaults", () => {
     const out = serializeCaseFile([{ type: "name", name: "Tesla" }], {
       numerologyDepth: 1,
-      enableAnagrams: true,
+      lexicalDepth: 1,
       astrologyDepth: 1,
       enableLeyLines: true,
       devMode: false,
@@ -100,7 +100,7 @@ describe("serializeCaseFile", () => {
   });
 
   it("includes only changed settings under s", () => {
-    const out = serializeCaseFile([], { numerologyDepth: 2, enableAnagrams: true });
+    const out = serializeCaseFile([], { numerologyDepth: 2, lexicalDepth: 1 });
     expect(out.s).toEqual({ numerologyDepth: 2 });
   });
 

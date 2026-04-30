@@ -62,9 +62,13 @@ export default function Recognizer() {
   // 3 = Deep (also reduces every numeric fact). Default 1 = today's behavior.
   // astrologyDepth: 0 = Off, 1 = Surface (elements), 2 = Standard (+ modality + rulers),
   // 3 = Deep (+ aspects + Mercury retrograde). Default 1 = today's behavior.
+  // lexicalDepth: 0 = Off (no anagram/word-overlap/stylometric), 1 = Surface
+  // (anagrams + word overlap + letter freq), 2 = Standard (+ phonetic, partial
+  // anagram, trigram), 3 = Deep (+ stems, homoglyphs, reverse spelling).
+  // Default 1 = today's behavior.
   const [settings, setSettings] = useState({
     numerologyDepth: 1,
-    enableAnagrams: true,
+    lexicalDepth: 1,
     astrologyDepth: 1,
     enableLeyLines: true,
     devMode: false,
@@ -815,8 +819,24 @@ export default function Recognizer() {
                 <option value={3}>Deep (+ aspects, Mercury retrograde)</option>
               </select>
             </label>
+            <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
+              <span style={{ marginRight: 10, minWidth: 200 }}>Lexical depth:</span>
+              <select
+                value={settings.lexicalDepth}
+                onChange={(e) => setSettings((s) => ({ ...s, lexicalDepth: parseInt(e.target.value, 10) }))}
+                style={{
+                  background: "#0f0a06", border: "1px solid #6b4a2a",
+                  color: "#e8dcc4", padding: "4px 8px", fontSize: 12,
+                  fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                <option value={0}>Off</option>
+                <option value={1}>Surface (anagrams, word overlap, letter freq)</option>
+                <option value={2}>Standard (+ phonetic, partial anagram, trigram)</option>
+                <option value={3}>Deep (+ stems, homoglyphs, reverse spelling)</option>
+              </select>
+            </label>
             {[
-              ["enableAnagrams", "Anagram and near-anagram detection"],
               ["enableLeyLines", "Ley-line geographic alignments"],
             ].map(([key, label]) => (
               <label key={key} style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
