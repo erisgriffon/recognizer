@@ -16,7 +16,8 @@ import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
 import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
 
-import { findConnections, strengthTier, sortConnectionsByStrength } from "../lib/connections.js";
+import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor } from "../lib/connections.js";
+import { TIERS } from "../lib/connections.config.js";
 import { narrateConnection } from "../lib/narrative/connection.js";
 import { generateDossier } from "../lib/narrative/dossier.js";
 
@@ -33,6 +34,7 @@ import {
 export default function Recognizer() {
   const [nodes, setNodes] = useState([]);
   const [view, setView] = useState("corkboard");
+  const [strengthFloor, setStrengthFloor] = useState(0);
 
   // Inputs
   const [nameInput, setNameInput] = useState("");
@@ -83,6 +85,14 @@ export default function Recognizer() {
   const connections = useMemo(
     () => sortConnectionsByStrength(findConnections(effectiveNodes, settings)),
     [effectiveNodes, settings]
+  );
+
+  // visibleConnections is the in-app display subset. The dossier always uses
+  // the full `connections` array — the filter is a viewing convenience, the
+  // dossier is a complete record.
+  const visibleConnections = useMemo(
+    () => filterByStrengthFloor(connections, strengthFloor),
+    [connections, strengthFloor]
   );
 
   // Hint computation: would promoting today reveal anything? Run the engine on
@@ -891,24 +901,58 @@ export default function Recognizer() {
 
         {connections.length > 0 && (
           <div style={{ marginBottom: 24 }}>
-            <h3 style={sectionHeader}>↯ CROSS-REFERENCES DETECTED ({connections.length})</h3>
-            {connections.map((c, i) => {
-              const tone = c.strength >= 0.9 ? "#ffb84d" : c.strength >= 0.6 ? "#d6a85f" : "#a89070";
-              return (
-                <div key={i} style={{
-                  padding: "12px 14px", marginBottom: 6,
-                  background: "rgba(40, 28, 18, 0.5)",
-                  borderLeft: `3px solid ${tone}`, fontSize: 13, lineHeight: 1.5,
-                }}>
-                  <div style={{ fontSize: 10, opacity: 0.6, letterSpacing: "0.1em", marginBottom: 4 }}>
-                    §{i + 1} · {c.kind.toUpperCase()} · MATCH STRENGTH: {strengthTier(c.strength)}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+              <h3 style={{ ...sectionHeader, marginBottom: 0 }}>
+                ↯ CROSS-REFERENCES DETECTED (
+                {visibleConnections.length !== connections.length
+                  ? `${visibleConnections.length} of ${connections.length}`
+                  : connections.length}
+                )
+              </h3>
+              <select
+                value={strengthFloor}
+                onChange={(e) => setStrengthFloor(parseFloat(e.target.value))}
+                style={{
+                  background: "#0f0a06", border: "1px solid #6b4a2a",
+                  color: "#e8dcc4", padding: "4px 8px", fontSize: 11,
+                  fontFamily: "inherit", letterSpacing: "0.1em", cursor: "pointer",
+                }}
+              >
+                {TIERS.slice().reverse().map((tier, idx, arr) => {
+                  const isTop = idx === arr.length - 1;
+                  const isBottom = tier.min === 0;
+                  const label = isBottom
+                    ? "Show all"
+                    : isTop
+                      ? `${tier.name[0] + tier.name.slice(1).toLowerCase()} only`
+                      : `${tier.name[0] + tier.name.slice(1).toLowerCase()} and above`;
+                  return <option key={tier.name} value={tier.min}>{label}</option>;
+                })}
+              </select>
+            </div>
+            {visibleConnections.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 20, opacity: 0.5, fontSize: 12, fontStyle: "italic" }}>
+                No findings at this strength level. Try lowering the floor.
+              </div>
+            ) : (
+              visibleConnections.map((c, i) => {
+                const tone = c.strength >= 0.9 ? "#ffb84d" : c.strength >= 0.6 ? "#d6a85f" : "#a89070";
+                return (
+                  <div key={i} style={{
+                    padding: "12px 14px", marginBottom: 6,
+                    background: "rgba(40, 28, 18, 0.5)",
+                    borderLeft: `3px solid ${tone}`, fontSize: 13, lineHeight: 1.5,
+                  }}>
+                    <div style={{ fontSize: 10, opacity: 0.6, letterSpacing: "0.1em", marginBottom: 4 }}>
+                      §{i + 1} · {c.kind.toUpperCase()} · MATCH STRENGTH: {strengthTier(c.strength)}
+                    </div>
+                    <div style={{ color: tone }}>
+                      {narrateConnection(c, visibleConnections.length, i + c.strength * 10)}
+                    </div>
                   </div>
-                  <div style={{ color: tone }}>
-                    {narrateConnection(c, connections.length, i + c.strength * 10)}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         )}
 

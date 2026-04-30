@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findConnections, strengthTier, sortConnectionsByStrength } from "./connections.js";
+import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor } from "./connections.js";
 import { STRENGTH, TIERS } from "./connections.config.js";
 
 // Tiny node factory — only the fields the engine actually reads.
@@ -338,5 +338,41 @@ describe("sortConnectionsByStrength — presentation-layer ordering", () => {
     const snapshot = input.map((c) => c.strength);
     sortConnectionsByStrength(input);
     expect(input.map((c) => c.strength)).toEqual(snapshot);
+  });
+});
+
+describe("filterByStrengthFloor — strength-floor filter", () => {
+  const sample = [
+    { from: "a", to: "b", strength: 1.0, kind: "exact" },
+    { from: "c", to: "d", strength: 0.9, kind: "anagram" },
+    { from: "e", to: "f", strength: 0.7, kind: "weekday-cluster" },
+    { from: "g", to: "h", strength: 0.5, kind: "near-anagram" },
+    { from: "i", to: "j", strength: 0.4, kind: "multiple" },
+  ];
+
+  it("floor 0 returns all connections", () => {
+    expect(filterByStrengthFloor(sample, 0)).toHaveLength(sample.length);
+  });
+
+  it("floor 0.9 returns only strength >= 0.9", () => {
+    const out = filterByStrengthFloor(sample, 0.9);
+    expect(out.map((c) => c.strength)).toEqual([1.0, 0.9]);
+  });
+
+  it("connections AT the floor value pass (>= not >)", () => {
+    const out = filterByStrengthFloor(sample, 0.7);
+    // 0.7 itself must be included
+    expect(out.some((c) => c.strength === 0.7)).toBe(true);
+    expect(out).toHaveLength(3); // 1.0, 0.9, 0.7
+  });
+
+  it("empty input returns empty output", () => {
+    expect(filterByStrengthFloor([], 0.5)).toEqual([]);
+  });
+
+  it("does not mutate the original array", () => {
+    const snapshot = sample.map((c) => c.strength);
+    filterByStrengthFloor(sample, 0.9);
+    expect(sample.map((c) => c.strength)).toEqual(snapshot);
   });
 });

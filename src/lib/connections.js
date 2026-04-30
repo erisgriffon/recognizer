@@ -419,3 +419,9 @@ export const strengthTier = (s) => {
 // strength findings preserve insertion order.
 export const sortConnectionsByStrength = (connections) =>
   [...connections].sort((a, b) => b.strength - a.strength);
+
+// Filter findings to those at or above a strength floor. Operates on the
+// strength field only — kind-agnostic so future connection categories
+// (astrology depth, etc.) participate without changes here.
+export const filterByStrengthFloor = (connections, floor) =>
+  connections.filter((c) => c.strength >= floor);
