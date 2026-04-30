@@ -20,6 +20,33 @@ export const numerologyOf = (str) => {
   return { sum, reduced: reduceNumber(sum), source: cleaned };
 };
 
+// Alias — Surface tier still calls numerologyOf, but Standard-tier code reads
+// more clearly when the system is named explicitly.
+export const pythagoreanNumerologyOf = numerologyOf;
+
+// Chaldean numerology assigns letters to digits 1–8 (9 is reserved as sacred,
+// though it CAN appear as a final reduced result, e.g. 27 → 9). Different
+// letter values from Pythagorean produces an independent fact per node.
+const CHALDEAN_VALUES = {
+  a: 1, i: 1, j: 1, q: 1, y: 1,
+  b: 2, k: 2, r: 2,
+  c: 3, g: 3, l: 3, s: 3,
+  d: 4, m: 4, t: 4,
+  e: 5, h: 5, n: 5, x: 5,
+  u: 6, v: 6, w: 6,
+  o: 7, z: 7,
+  f: 8, p: 8,
+};
+
+export const chaldeanValue = (ch) => CHALDEAN_VALUES[ch.toLowerCase()] || 0;
+
+export const chaldeanNumerologyOf = (str) => {
+  const cleaned = stripDiacritics(str || "").replace(/[^a-zA-Z]/g, "");
+  if (!cleaned) return null;
+  const sum = cleaned.split("").reduce((a, c) => a + chaldeanValue(c), 0);
+  return { sum, reduced: reduceNumber(sum), source: cleaned };
+};
+
 // Canonical letter-only signature. Two strings with identical signatures are
 // exact anagrams. Edit distance on signatures gives near-anagrams.
 export const anagramSignature = (str) =>

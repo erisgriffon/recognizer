@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   pythagoreanValue, reduceNumber, numerologyOf,
+  pythagoreanNumerologyOf, chaldeanValue, chaldeanNumerologyOf,
   anagramSignature, multisetEditDistance,
 } from "./numerology.js";
 
@@ -62,6 +63,78 @@ describe("numerologyOf", () => {
     expect(r.sum).toBe(12);
     expect(r.reduced).toBe(3);
     expect(r.source).toBe("Tesla"); // case preserved in source for display
+  });
+});
+
+describe("pythagoreanNumerologyOf alias", () => {
+  it("is the same function as numerologyOf (Surface tier still calls it)", () => {
+    expect(pythagoreanNumerologyOf).toBe(numerologyOf);
+  });
+});
+
+describe("chaldeanValue", () => {
+  it("maps letters to digits 1–8 per the Chaldean table", () => {
+    // 9 is reserved — it must NEVER appear as a letter value.
+    expect(chaldeanValue("a")).toBe(1);
+    expect(chaldeanValue("y")).toBe(1);
+    expect(chaldeanValue("f")).toBe(8);
+    expect(chaldeanValue("p")).toBe(8);
+    expect(chaldeanValue("o")).toBe(7);
+    expect(chaldeanValue("z")).toBe(7);
+  });
+
+  it("returns 0 for non-letters and is case-insensitive", () => {
+    expect(chaldeanValue("A")).toBe(1);
+    expect(chaldeanValue("F")).toBe(8);
+    expect(chaldeanValue("1")).toBe(0);
+    expect(chaldeanValue(" ")).toBe(0);
+  });
+
+  it("never assigns the value 9 to any letter", () => {
+    for (const ch of "abcdefghijklmnopqrstuvwxyz") {
+      expect(chaldeanValue(ch)).not.toBe(9);
+    }
+  });
+});
+
+describe("chaldeanNumerologyOf", () => {
+  it("returns null for empty / non-letter input", () => {
+    expect(chaldeanNumerologyOf("")).toBe(null);
+    expect(chaldeanNumerologyOf("123 456")).toBe(null);
+  });
+
+  it("computes the Chaldean sum and reduction for TESLA", () => {
+    // T=4, E=5, S=3, L=3, A=1 → sum 16 → 1+6 = 7
+    const r = chaldeanNumerologyOf("TESLA");
+    expect(r.sum).toBe(16);
+    expect(r.reduced).toBe(7);
+    expect(r.source).toBe("TESLA");
+  });
+
+  it("preserves master numbers 11 and 22 (matching Pythagorean reducer)", () => {
+    // FFFE → 8+8+8+5 = 29 → 11 (master)
+    expect(chaldeanNumerologyOf("FFFE").reduced).toBe(11);
+    // FFEA → 8+8+5+1 = 22 (already master, no reduction)
+    expect(chaldeanNumerologyOf("FFEA").reduced).toBe(22);
+  });
+
+  it("can produce 9 as a final reduced result (the letter mapping excludes 9, the result space does not)", () => {
+    // FFFC → 8+8+8+3 = 27 → 2+7 = 9
+    const r = chaldeanNumerologyOf("FFFC");
+    expect(r.sum).toBe(27);
+    expect(r.reduced).toBe(9);
+  });
+
+  it("strips diacritics and non-letters consistently with Pythagorean", () => {
+    const a = chaldeanNumerologyOf("Tesla!");
+    const b = chaldeanNumerologyOf("Téslá");
+    expect(a.sum).toBe(b.sum);
+    expect(a.reduced).toBe(b.reduced);
+  });
+
+  it("produces a different value than Pythagorean for the same input (so the two are independent facts)", () => {
+    // TESLA → Pythagorean sum 12, Chaldean sum 16 (verified above).
+    expect(chaldeanNumerologyOf("TESLA").sum).not.toBe(numerologyOf("TESLA").sum);
   });
 });
 
