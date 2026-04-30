@@ -495,6 +495,130 @@ describe("findConnections — astrology depth tiers", () => {
   });
 });
 
+describe("findConnections — lexical depth tiers", () => {
+  // Helper for name nodes — most lexical kinds operate on name/location nodes.
+  const nameNode = (id, name) => ({ id, type: "name", name, numbers: {} });
+  // Helper for text nodes — word-overlap, trigram, stem, stylometric.
+  const textNode = (id, name, rawText, extras = {}) => ({
+    id, type: "text", name,
+    rawText, tokens: rawText.toLowerCase().split(/\s+/), numbers: {}, ...extras,
+  });
+
+  it("depth=0 produces no anagram, word-overlap, or stylometric findings", () => {
+    const nodes = [
+      nameNode("a", "Listen"),
+      nameNode("b", "Silent"),
+      textNode("c", "Doc 1", "the quick brown fox jumps over"),
+      textNode("d", "Doc 2", "the quick brown fox runs over"),
+    ];
+    const kinds = findKinds(nodes, { lexicalDepth: 0 });
+    expect(kinds).not.toContain("anagram");
+    expect(kinds).not.toContain("word-overlap");
+    expect(kinds).not.toContain("stylometric");
+    expect(kinds).not.toContain("phonetic-match");
+  });
+
+  it("depth=1 (default) preserves anagram + word-overlap + stylometric (the old enableAnagrams=true behavior)", () => {
+    const nodes = [
+      nameNode("a", "Listen"),
+      nameNode("b", "Silent"),
+    ];
+    const conns = findConnections(nodes); // default settings
+    expect(conns.find((c) => c.kind === "anagram")).toBeTruthy();
+  });
+
+  it("depth=2 emits phonetic-match for sounds-alike names", () => {
+    const nodes = [
+      nameNode("a", "Smith"),
+      nameNode("b", "Smyth"),
+    ];
+    const conns = findConnections(nodes, { lexicalDepth: 2 });
+    const phon = conns.find((c) => c.kind === "phonetic-match");
+    expect(phon).toBeTruthy();
+    expect(phon.strength).toBe(STRENGTH.LEXICAL_PHONETIC);
+  });
+
+  it("depth=2 phonetic-match is suppressed when the pair is already a full anagram", () => {
+    // listen/silent are anagrams AND phonetically distinct enough that
+    // Metaphone might collide. The engine prefers the stronger anagram finding.
+    const nodes = [
+      nameNode("a", "Listen"),
+      nameNode("b", "Silent"),
+    ];
+    const conns = findConnections(nodes, { lexicalDepth: 2 });
+    expect(conns.filter((c) => c.kind === "phonetic-match").length).toBe(0);
+    expect(conns.find((c) => c.kind === "anagram")).toBeTruthy();
+  });
+
+  it("depth=2 emits partial-anagram with smaller name as a, larger as b", () => {
+    const nodes = [
+      nameNode("a", "Eliza"),
+      nameNode("b", "Elizabeth"),
+    ];
+    const pa = findConnections(nodes, { lexicalDepth: 2 }).find((c) => c.kind === "partial-anagram");
+    expect(pa).toBeTruthy();
+    expect(pa.a.nodeName).toBe("Eliza");      // smaller
+    expect(pa.b.nodeName).toBe("Elizabeth");  // larger
+  });
+
+  it("depth=2 trigram-similarity fires for fuzzy text matches above threshold", () => {
+    const nodes = [
+      textNode("a", "Doc 1", "the quick brown fox jumps over the lazy dog"),
+      textNode("b", "Doc 2", "the quick brown fox jumped over the lazy dogs"),
+    ];
+    const trig = findConnections(nodes, { lexicalDepth: 2 }).find((c) => c.kind === "trigram-similarity");
+    expect(trig).toBeTruthy();
+    expect(trig.score).toBeGreaterThan(0.4);
+  });
+
+  it("depth=3 stem-match fires when two text nodes share a word root", () => {
+    const nodes = [
+      textNode("a", "Doc A", "alpha beta running gamma"),
+      textNode("b", "Doc B", "delta epsilon runner zeta"),
+    ];
+    const stem = findConnections(nodes, { lexicalDepth: 3 }).find((c) => c.kind === "stem-match");
+    expect(stem).toBeTruthy();
+    expect(stem.stem).toBe("runn"); // both running and runner naive-stem to "runn"
+    expect(stem.strength).toBe(STRENGTH.LEXICAL_STEM);
+  });
+
+  it("depth=3 homoglyph-match fires when one name uses Cyrillic lookalikes", () => {
+    // First A in "Аpple" is Cyrillic А (U+0410), normalizes to Latin Apple.
+    const nodes = [
+      nameNode("a", "Аpple"),
+      nameNode("b", "Apple"),
+    ];
+    const h = findConnections(nodes, { lexicalDepth: 3 }).find((c) => c.kind === "homoglyph-match");
+    expect(h).toBeTruthy();
+    expect(h.strength).toBe(STRENGTH.LEXICAL_HOMOGLYPH);
+  });
+
+  it("depth=3 reverse-spell fires for dog/god", () => {
+    const nodes = [
+      nameNode("a", "Dog"),
+      nameNode("b", "God"),
+    ];
+    const r = findConnections(nodes, { lexicalDepth: 3 }).find((c) => c.kind === "reverse-spell");
+    expect(r).toBeTruthy();
+    expect(r.strength).toBe(STRENGTH.LEXICAL_REVERSE);
+  });
+
+  it("depth gates stack: depth=2 includes Surface findings + Standard, but not Deep", () => {
+    const nodes = [
+      nameNode("a", "Listen"),         // anagram with b
+      nameNode("b", "Silent"),
+      nameNode("c", "Smith"),          // phonetic with d
+      nameNode("d", "Smyth"),
+      nameNode("e", "Dog"),            // reverse with f (Deep only)
+      nameNode("f", "God"),
+    ];
+    const kinds = findKinds(nodes, { lexicalDepth: 2 });
+    expect(kinds).toContain("anagram");          // Surface
+    expect(kinds).toContain("phonetic-match");   // Standard
+    expect(kinds).not.toContain("reverse-spell"); // Deep — gated off at 2
+  });
+});
+
 describe("connections.config — STRENGTH has every key the engine references", () => {
   // Catches typos when someone adds a new connection kind with a constant
   // that doesn't exist on the STRENGTH map (would silently produce strength=undefined).
@@ -506,6 +630,8 @@ describe("connections.config — STRENGTH has every key the engine references", 
     "ASTROLOGY_RETROGRADE",
     "ASTROLOGY_ASPECT_CONJUNCTION", "ASTROLOGY_ASPECT_SEXTILE",
     "ASTROLOGY_ASPECT_SQUARE", "ASTROLOGY_ASPECT_TRINE", "ASTROLOGY_ASPECT_OPPOSITION",
+    "LEXICAL_PHONETIC", "LEXICAL_PARTIAL_ANAGRAM", "LEXICAL_TRIGRAM",
+    "LEXICAL_STEM", "LEXICAL_HOMOGLYPH", "LEXICAL_REVERSE",
     "NAME_MENTION", "NAME_IN_FILENAME", "TODAY_MENTION",
     "COLOR_MATCH", "DISTANCE", "DISTANCE_MATCH", "LEY_LINE",
   ];

@@ -122,6 +122,28 @@ export const rephrasers = {
   "color-match": (c) => `a dominant colour of ${c.a.nodeName} (${c.a.hex}) is visually indistinguishable from a dominant colour of ${c.b.nodeName} (${c.b.hex}). Two unrelated images converging on the same chromatic signature is a rare event`,
   anagram: (c) => `the letters of ${c.a.nodeName.toUpperCase()}, rearranged, spell ${c.b.nodeName.toUpperCase()}. The investigator declines to speculate further`,
   "near-anagram": (c) => `${c.a.nodeName.toUpperCase()} and ${c.b.nodeName.toUpperCase()} differ by only ${written(c.distance)} letter${c.distance === 1 ? "" : "s"} when reduced to their constituent characters. A near-anagram of this proximity, in the absence of common etymology, is suspect`,
+  "phonetic-match": (c) => {
+    const seed = (c.code || "").length * 13 + c.a.nodeName.length;
+    return pick([
+      `${c.a.nodeName} and ${c.b.nodeName} produce the identical Metaphone phonetic code (${c.code}). The investigator notes that names converging on identical phonetic signatures are the basis of much classical onomastics`,
+      `phonetically encoded, ${c.a.nodeName} and ${c.b.nodeName} are indistinguishable — both reduce to the Metaphone code "${c.code}"`,
+    ], seed);
+  },
+  "partial-anagram": (c) => {
+    const seed = c.a.nodeName.length * 7 + c.b.nodeName.length;
+    return pick([
+      `the letters of ${c.a.nodeName} form a complete subset of those in ${c.b.nodeName}. Every letter required to spell ${c.a.nodeName} is present, in sufficient quantity, within ${c.b.nodeName}`,
+      `${c.a.nodeName} is a letter-subset of ${c.b.nodeName} — what cryptographers might call a partial anagram and what numerologists would call something more interesting`,
+    ], seed);
+  },
+  "trigram-similarity": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} share ${Math.round(c.score * 100)}% of their three-letter sequences. The investigator submits this without comment`,
+  "stem-match": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} share the linguistic root "${c.stem}". The investigator notes that shared etymological roots are not generally accepted as evidence of conspiracy, but submits the finding for completeness`,
+  "homoglyph-match": (c) =>
+    `the investigator has identified non-Latin characters in ${c.a.nodeName} that, when normalized to their Latin equivalents, produce a string identical to ${c.b.nodeName}. This is the technique used in deceptive URLs and impersonation attacks. The investigator does not draw conclusions but does note this with concern`,
+  "reverse-spell": (c) =>
+    `${c.a.nodeName}, spelled in reverse, yields ${c.b.nodeName}. The investigator considers reverse-spelling correspondences to be among the most rhetorically charged in the literature on coincidence`,
 };
 
 export const narrateConnection = (c, totalConnections = 1, indexSeed = 0) => {
