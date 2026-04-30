@@ -531,16 +531,7 @@ export default function Recognizer() {
     setNodes([]);
     setSelectedNodeId(null);
     if (caseFile.s) {
-      // Migrate legacy boolean enableAstrology to astrologyDepth so older
-      // shared URLs still apply the sender's intent (true → Surface, false → Off).
-      const incoming = { ...caseFile.s };
-      if ("enableAstrology" in incoming) {
-        if (!("astrologyDepth" in incoming)) {
-          incoming.astrologyDepth = incoming.enableAstrology ? 1 : 0;
-        }
-        delete incoming.enableAstrology;
-      }
-      setSettings((prev) => ({ ...prev, ...incoming }));
+      setSettings((prev) => ({ ...prev, ...caseFile.s }));
     }
     setLoading("Reconstructing case file…");
     for (const seed of caseFile.n) {
