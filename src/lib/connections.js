@@ -4,6 +4,10 @@ import {
   ZODIAC_ELEMENTS, ZODIAC_MODALITIES, zodiacCompatible,
   modalityCompatible, sharedRuler, aspectBetween, isMercuryRetrograde,
 } from "./astrology.js";
+import {
+  phoneticCodes, isPartialAnagram, trigramSimilarity, naiveStem,
+  normalizeHomoglyphs, hasHomoglyphs, isReverse,
+} from "./lexical.js";
 import { parseDate } from "./dates.js";
 import { colorDistance } from "./extractors/image.js";
 import { STRENGTH, TIERS, NUMERIC_THRESHOLDS } from "./connections.config.js";
@@ -14,7 +18,7 @@ import { STRENGTH, TIERS, NUMERIC_THRESHOLDS } from "./connections.config.js";
 export const findConnections = (nodes, settings = {}) => {
   const {
     numerologyDepth = 1,
-    enableAnagrams = true,
+    lexicalDepth = 1,
     astrologyDepth = 1,
     enableLeyLines = true,
   } = settings;
@@ -169,8 +173,18 @@ export const findConnections = (nodes, settings = {}) => {
     }
   }
 
-  // ---- Anagrams ----
-  if (enableAnagrams) {
+  // ---- Lexical ----
+  // Depth tiers: 0 = off, 1 = Surface (anagrams + word-overlap + letter-freq),
+  // 2 = + phonetic + partial-anagram + trigram, 3 = + stem + homoglyph + reverse.
+  // Default is 1 — same coverage as the old enableAnagrams=true plus the
+  // (always-on) word-overlap and stylometric blocks. Off truly means off.
+
+  // textNodes is reused below by other blocks (wordcount-year), so it must
+  // exist regardless of lexicalDepth.
+  const textNodes = nodes.filter((n) => n.type === "text" && n.tokens);
+
+  if (lexicalDepth >= 1) {
+    // Anagrams (and near-anagrams) over name and location nodes.
     const anagramables = nodes.filter((n) => ["name", "location"].includes(n.type) && n.name);
     for (let i = 0; i < anagramables.length; i++) {
       for (let j = i + 1; j < anagramables.length; j++) {
@@ -194,42 +208,154 @@ export const findConnections = (nodes, settings = {}) => {
         }
       }
     }
-  }
 
-  // ---- Word overlap ----
-  const textNodes = nodes.filter((n) => n.type === "text" && n.tokens);
-  for (let i = 0; i < textNodes.length; i++) {
-    for (let j = i + 1; j < textNodes.length; j++) {
-      const a = textNodes[i], b = textNodes[j];
-      const overlap = a.tokens.filter((t) => b.tokens.includes(t) && t.length > 4);
-      if (overlap.length > 0) {
-        connections.push({
-          from: a.id, to: b.id, strength: STRENGTH.WORD_OVERLAP, kind: "word-overlap",
-          a: { nodeName: a.name }, b: { nodeName: b.name },
-          words: overlap.slice(0, 3),
-        });
+    // Word overlap across text nodes — shared rare words (length > 4).
+    for (let i = 0; i < textNodes.length; i++) {
+      for (let j = i + 1; j < textNodes.length; j++) {
+        const a = textNodes[i], b = textNodes[j];
+        const overlap = a.tokens.filter((t) => b.tokens.includes(t) && t.length > 4);
+        if (overlap.length > 0) {
+          connections.push({
+            from: a.id, to: b.id, strength: STRENGTH.WORD_OVERLAP, kind: "word-overlap",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+            words: overlap.slice(0, 3),
+          });
+        }
+      }
+    }
+
+    // Letter-frequency cosine similarity (stylometric).
+    const lfNodes = nodes.filter((n) => n.letterFreq);
+    for (let i = 0; i < lfNodes.length; i++) {
+      for (let j = i + 1; j < lfNodes.length; j++) {
+        const a = lfNodes[i], b = lfNodes[j];
+        let dot = 0, magA = 0, magB = 0;
+        for (const ch of "abcdefghijklmnopqrstuvwxyz") {
+          const x = a.letterFreq[ch], y = b.letterFreq[ch];
+          dot += x * y; magA += x * x; magB += y * y;
+        }
+        const sim = dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1);
+        if (sim > 0.985) {
+          connections.push({
+            from: a.id, to: b.id, strength: STRENGTH.STYLOMETRIC, kind: "stylometric",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+            similarity: sim,
+          });
+        }
       }
     }
   }
 
-  // ---- Letter-frequency overlap (stylometric) ----
-  const lfNodes = nodes.filter((n) => n.letterFreq);
-  for (let i = 0; i < lfNodes.length; i++) {
-    for (let j = i + 1; j < lfNodes.length; j++) {
-      const a = lfNodes[i], b = lfNodes[j];
-      // Cosine similarity on the 26-d vectors
-      let dot = 0, magA = 0, magB = 0;
-      for (const ch of "abcdefghijklmnopqrstuvwxyz") {
-        const x = a.letterFreq[ch], y = b.letterFreq[ch];
-        dot += x * y; magA += x * x; magB += y * y;
-      }
-      const sim = dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1);
-      if (sim > 0.985) { // threshold: very similar letter distributions
+  if (lexicalDepth >= 2) {
+    // Phonetic match: any shared Metaphone code across name and location nodes.
+    // Multi-token names (e.g. "Smith Robert") match if any one of their codes
+    // matches any one of the partner's — a deliberately loose comparison.
+    const phoneticables = nodes.filter((n) => ["name", "location"].includes(n.type) && n.name);
+    const codes = phoneticables.map((n) => ({ node: n, codes: phoneticCodes(n.name) }));
+    for (let i = 0; i < codes.length; i++) {
+      for (let j = i + 1; j < codes.length; j++) {
+        const a = codes[i], b = codes[j];
+        const shared = a.codes.find((c) => c.length >= 3 && b.codes.includes(c));
+        if (!shared) continue;
+        // Skip if these two are already an exact anagram match — same letters
+        // tend to produce the same Metaphone, and the anagram finding is
+        // stronger and more interesting.
+        if (anagramSignature(a.node.name) === anagramSignature(b.node.name)) continue;
         connections.push({
-          from: a.id, to: b.id, strength: STRENGTH.STYLOMETRIC, kind: "stylometric",
-          a: { nodeName: a.name }, b: { nodeName: b.name },
-          similarity: sim,
+          from: a.node.id, to: b.node.id,
+          strength: STRENGTH.LEXICAL_PHONETIC, kind: "phonetic-match",
+          a: { nodeName: a.node.name }, b: { nodeName: b.node.name },
+          code: shared,
         });
+      }
+    }
+
+    // Partial anagram — one name's letters are a subset of the other's.
+    // Skip pairs that already match as full anagrams (caught in Surface).
+    for (let i = 0; i < phoneticables.length; i++) {
+      for (let j = i + 1; j < phoneticables.length; j++) {
+        const a = phoneticables[i], b = phoneticables[j];
+        if (anagramSignature(a.name) === anagramSignature(b.name)) continue;
+        if (!isPartialAnagram(a.name, b.name)) continue;
+        // Caller-friendly ordering: smaller name first, larger second.
+        const [small, large] = a.name.length <= b.name.length ? [a, b] : [b, a];
+        connections.push({
+          from: small.id, to: large.id,
+          strength: STRENGTH.LEXICAL_PARTIAL_ANAGRAM, kind: "partial-anagram",
+          a: { nodeName: small.name }, b: { nodeName: large.name },
+        });
+      }
+    }
+
+    // Trigram similarity across text-pair fragments. Threshold 0.4 — high
+    // enough to skip pure-noise overlaps, low enough to surface fuzzy matches.
+    for (let i = 0; i < textNodes.length; i++) {
+      for (let j = i + 1; j < textNodes.length; j++) {
+        const a = textNodes[i], b = textNodes[j];
+        const score = trigramSimilarity(a.rawText || a.name, b.rawText || b.name);
+        if (score >= 0.4) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.LEXICAL_TRIGRAM, kind: "trigram-similarity",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+            score,
+          });
+        }
+      }
+    }
+  }
+
+  if (lexicalDepth >= 3) {
+    // Stem match across text nodes. Two text fragments match if they share
+    // any word stem of length >= 4 (avoids "the" → "the" noise).
+    for (let i = 0; i < textNodes.length; i++) {
+      for (let j = i + 1; j < textNodes.length; j++) {
+        const a = textNodes[i], b = textNodes[j];
+        const stemsA = new Set((a.tokens || []).map(naiveStem).filter((s) => s.length >= 4));
+        const stemsB = new Set((b.tokens || []).map(naiveStem).filter((s) => s.length >= 4));
+        // Find shared stems that don't already share the raw word (caught
+        // by Surface word-overlap).
+        const sharedWords = new Set((a.tokens || []).filter((t) => (b.tokens || []).includes(t)));
+        let foundStem = null;
+        for (const s of stemsA) {
+          if (stemsB.has(s) && !sharedWords.has(s)) { foundStem = s; break; }
+        }
+        if (foundStem) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.LEXICAL_STEM, kind: "stem-match",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+            stem: foundStem,
+          });
+        }
+      }
+    }
+
+    // Homoglyph and reverse-spelling — over name and location nodes.
+    const lexicalNodes = nodes.filter((n) => ["name", "location"].includes(n.type) && n.name);
+    for (let i = 0; i < lexicalNodes.length; i++) {
+      for (let j = i + 1; j < lexicalNodes.length; j++) {
+        const a = lexicalNodes[i], b = lexicalNodes[j];
+        // Homoglyph: only fires when one of the names has lookalikes AND
+        // its normalized form exactly matches the other.
+        const aHas = hasHomoglyphs(a.name), bHas = hasHomoglyphs(b.name);
+        if (aHas || bHas) {
+          if (normalizeHomoglyphs(a.name).toLowerCase() === normalizeHomoglyphs(b.name).toLowerCase()
+              && a.name !== b.name) {
+            connections.push({
+              from: a.id, to: b.id,
+              strength: STRENGTH.LEXICAL_HOMOGLYPH, kind: "homoglyph-match",
+              a: { nodeName: a.name }, b: { nodeName: b.name },
+            });
+          }
+        }
+        if (isReverse(a.name, b.name)) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.LEXICAL_REVERSE, kind: "reverse-spell",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+          });
+        }
       }
     }
   }

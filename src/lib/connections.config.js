@@ -43,6 +43,17 @@ export const STRENGTH = {
   DISTANCE: 0.7,
   DISTANCE_MATCH: 0.95,
   LEY_LINE: 0.8,
+  // Lexical depth — Standard and Deep tiers. Surface tier reuses ANAGRAM,
+  // NEAR_ANAGRAM, WORD_OVERLAP, STYLOMETRIC. Phonetic at 0.7 lands STRIKING
+  // because sounds-alike between submitted names is a genuinely interesting
+  // signal. Homoglyph at 0.85 is near-SUSPICIOUS because homoglyph attacks
+  // are real things in the security world.
+  LEXICAL_PHONETIC: 0.7,
+  LEXICAL_PARTIAL_ANAGRAM: 0.65,
+  LEXICAL_TRIGRAM: 0.55,
+  LEXICAL_STEM: 0.5,
+  LEXICAL_HOMOGLYPH: 0.85,
+  LEXICAL_REVERSE: 0.75,
 };
 
 // Named strength tiers replace the misleading "CONFIDENCE %" label. Strength
