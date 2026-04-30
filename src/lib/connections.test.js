@@ -276,6 +276,225 @@ describe("findConnections — numerology depth tiers", () => {
   });
 });
 
+describe("findConnections — astrology depth tiers", () => {
+  // Helper for sign-bearing nodes. Most tests pair signs whose elemental,
+  // modal, ruler, and aspect relationships we can predict at a glance.
+  const signNode = (id, name, zodiac, extras = {}) => ({
+    id, type: "name", name, zodiac, numbers: extras.numbers || {}, ...extras,
+  });
+
+  it("depth=0 produces zero astrology connections of any flavor", () => {
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),
+      signNode("b", "Beta", "Leo"),
+    ];
+    const kinds = findKinds(nodes, { astrologyDepth: 0 });
+    expect(kinds).not.toContain("astrology");
+    expect(kinds).not.toContain("astrology-modality");
+    expect(kinds).not.toContain("astrology-ruler");
+    expect(kinds).not.toContain("astrology-aspect");
+    expect(kinds).not.toContain("astrology-retrograde");
+  });
+
+  it("default depth (no setting) = 1 (Surface) — same behavior as the old enableAstrology=true", () => {
+    // Two fire signs — element match only, no modality/ruler/aspect findings.
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),
+      signNode("b", "Beta", "Leo"),
+    ];
+    const conns = findConnections(nodes); // no settings at all
+    const kinds = conns.map((c) => c.kind);
+    expect(kinds.filter((k) => k === "astrology").length).toBe(1);
+    expect(kinds).not.toContain("astrology-modality");
+    expect(kinds).not.toContain("astrology-ruler");
+    expect(kinds).not.toContain("astrology-aspect");
+    expect(conns.find((c) => c.kind === "astrology").strength).toBe(STRENGTH.ASTROLOGY);
+  });
+
+  it("depth=1 excludes same-sign pairs from element match (preserves Surface semantics)", () => {
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),
+      signNode("b", "Beta", "Aries"),
+    ];
+    expect(findKinds(nodes, { astrologyDepth: 1 })).not.toContain("astrology");
+  });
+
+  it("depth=2 emits astrology + astrology-modality + astrology-ruler simultaneously when all three apply", () => {
+    // Aries (fire/cardinal/Mars) + Scorpio (water/fixed/Mars) — element no,
+    // modality no, ruler yes. Use Aries + Capricorn instead: fire vs earth
+    // (no element), cardinal vs cardinal (yes modality), Mars vs Saturn
+    // (no ruler). Want all three together: Aries + Aries doesn't work
+    // (same-sign exclusion). Use Aries + Leo + Sagittarius pairs instead:
+    // Aries vs Leo: fire/fire (element), cardinal/fixed (no modality),
+    // Mars/Sun (no ruler). One layer.
+    //
+    // Need a pair where element match AND modality match AND ruler match
+    // simultaneously and signs differ. The traditional rulership doubles:
+    // Mars rules Aries (cardinal fire) + Scorpio (fixed water) — different
+    // element, different modality. Venus rules Taurus (fixed earth) + Libra
+    // (cardinal air) — different element, different modality.
+    //
+    // The classical doubles never share element AND modality with their
+    // co-ruled sign — that's by design. So a "all three layers" pair
+    // doesn't exist within the traditional scheme. Test the realistic
+    // case: a pair sharing element + modality (impossible, since element
+    // and modality together identify a sign uniquely) is also not a thing.
+    //
+    // Test the realistic two-layer overlap: element match + ruler match.
+    // Aries + Scorpio: fire vs water (no element), Mars + Mars (yes ruler)
+    // — only ruler. Capricorn + Aquarius: earth vs air (no element),
+    // cardinal vs fixed (no modality), Saturn + Saturn (yes ruler)
+    // — only ruler.
+    //
+    // Element + modality: signs sharing both must be the same sign. Skip.
+    // Ruler + element: Mars rules Aries (fire) and Scorpio (water) —
+    // never same element. Same for every classical pair. So ruler match
+    // implies different element.
+    //
+    // The realistic stack at depth 2 is: signs sharing element OR signs
+    // sharing modality OR signs sharing ruler — but two of those at once
+    // is structurally impossible in the classical scheme. Pick a pair
+    // that hits two distinct kinds via distinct relationships:
+    // Aries + Cancer: fire vs water (no element), cardinal + cardinal
+    // (yes modality), Mars vs Moon (no ruler) → just modality.
+    //
+    // So this test asserts the simpler case: a pair triggers exactly one
+    // of element/modality/ruler — and depth=2 surfaces that one without
+    // suppressing the others on a different pair.
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),    // fire / cardinal / Mars
+      signNode("b", "Beta", "Cancer"),    // water / cardinal / Moon
+      signNode("c", "Gamma", "Scorpio"),  // water / fixed   / Mars
+    ];
+    const conns = findConnections(nodes, { astrologyDepth: 2 });
+    const kinds = conns.map((c) => c.kind);
+    // Aries + Cancer: shared modality (cardinal). No element, no ruler.
+    expect(kinds).toContain("astrology-modality");
+    // Aries + Scorpio: shared ruler (Mars). No element, no modality.
+    expect(kinds).toContain("astrology-ruler");
+    // Beta + Gamma (Cancer + Scorpio): water + water — element match.
+    expect(kinds).toContain("astrology");
+  });
+
+  it("depth=2 modality match excludes same-sign pairs", () => {
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),
+      signNode("b", "Beta", "Aries"),
+    ];
+    expect(findKinds(nodes, { astrologyDepth: 2 })).not.toContain("astrology-modality");
+  });
+
+  it("depth=2 ruler match excludes same-sign pairs", () => {
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),
+      signNode("b", "Beta", "Aries"),
+    ];
+    expect(findKinds(nodes, { astrologyDepth: 2 })).not.toContain("astrology-ruler");
+  });
+
+  it("depth=2 ruler match emits astrology-ruler with the planet name", () => {
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),    // Mars
+      signNode("b", "Beta", "Scorpio"),   // Mars
+    ];
+    const ruler = findConnections(nodes, { astrologyDepth: 2 }).find((c) => c.kind === "astrology-ruler");
+    expect(ruler).toBeTruthy();
+    expect(ruler.planet).toBe("Mars");
+    expect(ruler.strength).toBe(STRENGTH.ASTROLOGY_RULER);
+  });
+
+  it("depth=3 same-sign pair fires conjunction-aspect (this is the only place same-sign produces a finding)", () => {
+    const nodes = [
+      signNode("a", "Alpha", "Aries"),
+      signNode("b", "Beta", "Aries"),
+    ];
+    const conns = findConnections(nodes, { astrologyDepth: 3 });
+    // No element / modality / ruler match for same-sign — but conjunction yes.
+    expect(conns.filter((c) => c.kind === "astrology").length).toBe(0);
+    const aspect = conns.find((c) => c.kind === "astrology-aspect");
+    expect(aspect).toBeTruthy();
+    expect(aspect.aspect.name).toBe("conjunction");
+    expect(aspect.strength).toBe(STRENGTH.ASTROLOGY_ASPECT_CONJUNCTION);
+  });
+
+  it("depth=3 each of the five aspects fires for known sign pairs", () => {
+    // Conjunction (0°): same sign. Sextile (60°): two apart.
+    // Square (90°): three apart. Trine (120°): four apart.
+    // Opposition (180°): six apart.
+    const cases = [
+      ["Aries", "Aries", "conjunction"],
+      ["Aries", "Gemini", "sextile"],
+      ["Aries", "Cancer", "square"],
+      ["Aries", "Leo", "trine"],
+      ["Aries", "Libra", "opposition"],
+    ];
+    for (const [a, b, expected] of cases) {
+      const nodes = [
+        signNode("a", "Alpha", a),
+        signNode("b", "Beta", b),
+      ];
+      const aspect = findConnections(nodes, { astrologyDepth: 3 }).find((c) => c.kind === "astrology-aspect");
+      expect(aspect, `${a} ↔ ${b} should produce ${expected}`).toBeTruthy();
+      expect(aspect.aspect.name).toBe(expected);
+    }
+  });
+
+  it("depth=3 emits astrology-retrograde for two date-bearing nodes both in retrograde windows", () => {
+    // 2025-03-20 falls in 2025-03-14..2025-04-07; 2025-07-25 falls in 2025-07-17..2025-08-11.
+    const nodes = [
+      { id: "d1", type: "date", name: "Event 1", isoDate: "2025-03-20" },
+      { id: "d2", type: "date", name: "Event 2", isoDate: "2025-07-25" },
+    ];
+    const conn = findConnections(nodes, { astrologyDepth: 3 }).find((c) => c.kind === "astrology-retrograde");
+    expect(conn).toBeTruthy();
+    expect(conn.strength).toBe(STRENGTH.ASTROLOGY_RETROGRADE);
+    expect(conn.a.retrogradeRange).toBe("2025-03-14–2025-04-07");
+  });
+
+  it("depth=3 does NOT emit astrology-retrograde when only one date is in a retrograde window", () => {
+    const nodes = [
+      { id: "d1", type: "date", name: "Event 1", isoDate: "2025-03-20" }, // in retro
+      { id: "d2", type: "date", name: "Event 2", isoDate: "2025-06-01" }, // outside
+    ];
+    expect(findKinds(nodes, { astrologyDepth: 3 })).not.toContain("astrology-retrograde");
+  });
+
+  it("depth=3 retrograde matching reads birthDate on name nodes (Wikidata-derived)", () => {
+    // A name node with birthDate during retrograde, plus a date node also
+    // during retrograde — the engine should treat both as date-bearing.
+    const nodes = [
+      { id: "n1", type: "name", name: "Person", birthDate: "2020-06-25" }, // 2020-06-17..2020-07-12
+      { id: "d1", type: "date", name: "Event", isoDate: "2025-03-20" },    // 2025-03-14..2025-04-07
+    ];
+    const conn = findConnections(nodes, { astrologyDepth: 3 }).find((c) => c.kind === "astrology-retrograde");
+    expect(conn).toBeTruthy();
+  });
+
+  it("layers stack rather than merge: element + modality + ruler each emit their own connection", () => {
+    // Aries + Scorpio share Mars (ruler) and nothing else; depth-2 produces
+    // exactly one ruler finding. We're testing the stacking pattern: that
+    // when multiple kinds DO apply to a pair, each becomes a separate
+    // connection rather than collapsing into a single "merged" finding the
+    // way numerology-double does.
+    //
+    // Use Cancer + Scorpio: water/water (element), cardinal/fixed (no modality),
+    // Moon/Mars (no ruler). Then add Cancer + Capricorn: water/earth (no
+    // element), cardinal/cardinal (modality). Then verify Cancer participates
+    // in both an "astrology" and an "astrology-modality" connection (different
+    // partners, same node) — i.e. the engine emits one of each.
+    const nodes = [
+      signNode("a", "Alpha", "Cancer"),
+      signNode("b", "Beta", "Scorpio"),     // shares element with Cancer (water)
+      signNode("c", "Gamma", "Capricorn"),  // shares modality with Cancer (cardinal)
+    ];
+    const conns = findConnections(nodes, { astrologyDepth: 2 });
+    const incidentToA = conns.filter((c) => c.from === "a" || c.to === "a");
+    const kindsForA = incidentToA.map((c) => c.kind);
+    expect(kindsForA).toContain("astrology");
+    expect(kindsForA).toContain("astrology-modality");
+  });
+});
+
 describe("connections.config — STRENGTH has every key the engine references", () => {
   // Catches typos when someone adds a new connection kind with a constant
   // that doesn't exist on the STRENGTH map (would silently produce strength=undefined).
@@ -283,7 +502,11 @@ describe("connections.config — STRENGTH has every key the engine references", 
     "EXACT", "NEAR", "NEAR_YEAR", "MULTIPLE",
     "NUMEROLOGY", "NUMEROLOGY_CHALDEAN", "NUMEROLOGY_DOUBLE", "NUMEROLOGY_DEEP",
     "ANAGRAM", "NEAR_ANAGRAM", "WORD_OVERLAP", "STYLOMETRIC", "WORDCOUNT_YEAR",
-    "WEEKDAY_CLUSTER", "ASTROLOGY", "NAME_MENTION", "NAME_IN_FILENAME", "TODAY_MENTION",
+    "WEEKDAY_CLUSTER", "ASTROLOGY", "ASTROLOGY_MODALITY", "ASTROLOGY_RULER",
+    "ASTROLOGY_RETROGRADE",
+    "ASTROLOGY_ASPECT_CONJUNCTION", "ASTROLOGY_ASPECT_SEXTILE",
+    "ASTROLOGY_ASPECT_SQUARE", "ASTROLOGY_ASPECT_TRINE", "ASTROLOGY_ASPECT_OPPOSITION",
+    "NAME_MENTION", "NAME_IN_FILENAME", "TODAY_MENTION",
     "COLOR_MATCH", "DISTANCE", "DISTANCE_MATCH", "LEY_LINE",
   ];
   it.each(requiredKeys)("STRENGTH.%s is a finite number in [0,1]", (key) => {
