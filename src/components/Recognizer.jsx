@@ -649,11 +649,22 @@ export default function Recognizer() {
             <p style={{ fontSize: 11, opacity: 0.7, margin: "0 0 10px" }}>
               Disable categories the investigator considers unscientific. (Or, alternatively, lean into them.)
             </p>
-            <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={settings.numerologyDepth >= 1}
-                onChange={(e) => setSettings((s) => ({ ...s, numerologyDepth: e.target.checked ? 1 : 0 }))}
-                style={{ marginRight: 10, accentColor: "#aa1e1e" }} />
-              Numerology (Pythagorean digit reduction)
+            <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
+              <span style={{ marginRight: 10, minWidth: 200 }}>Numerology depth:</span>
+              <select
+                value={settings.numerologyDepth}
+                onChange={(e) => setSettings((s) => ({ ...s, numerologyDepth: parseInt(e.target.value, 10) }))}
+                style={{
+                  background: "#0f0a06", border: "1px solid #6b4a2a",
+                  color: "#e8dcc4", padding: "4px 8px", fontSize: 12,
+                  fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                <option value={0}>Off</option>
+                <option value={1}>Surface (Pythagorean only)</option>
+                <option value={2}>Standard (+ Chaldean)</option>
+                <option value={3}>Deep (also reduces every numeric fact)</option>
+              </select>
             </label>
             {[
               ["enableAnagrams", "Anagram and near-anagram detection"],
@@ -840,6 +851,34 @@ export default function Recognizer() {
                                 : node.numerology.pythagorean.source.toUpperCase())
                             : "?"}
                           {" → "}{node.numerology.pythagorean.sum}{" → "}{node.numerology.pythagorean.reduced}
+                        </td>
+                      </tr>
+                    )}
+                    {settings.numerologyDepth >= 2 && node.numerology?.chaldean && (
+                      <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
+                        <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>numerology (Chaldean)</td>
+                        <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
+                          {node.numerology.chaldean.source
+                            ? (node.numerology.chaldean.source.length > 20
+                                ? node.numerology.chaldean.source.slice(0, 18).toUpperCase() + "…"
+                                : node.numerology.chaldean.source.toUpperCase())
+                            : "?"}
+                          {" → "}{node.numerology.chaldean.sum}{" → "}{node.numerology.chaldean.reduced}
+                        </td>
+                      </tr>
+                    )}
+                    {settings.numerologyDepth >= 3 && node.numbers && Object.keys(node.numbers).length > 0 && (
+                      <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
+                        <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>deep-reduced facts</td>
+                        <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
+                          {Object.entries(node.numbers)
+                            .filter(([, v]) => typeof v === "number" && Number.isFinite(v) && v > 0)
+                            .map(([k, v]) => {
+                              let r = Math.floor(v);
+                              while (r > 9) r = String(r).split("").reduce((s, d) => s + parseInt(d, 10), 0);
+                              return `${k}→${r}`;
+                            })
+                            .join(", ") || "(none)"}
                         </td>
                       </tr>
                     )}
