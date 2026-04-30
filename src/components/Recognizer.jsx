@@ -4,7 +4,7 @@ import { LIMITS } from "../data/limits.js";
 import { DEMO_SET, RANDOM_POOLS, randomItem } from "../data/pools.js";
 
 import { tokenize, sample } from "../lib/utils.js";
-import { numerologyOf } from "../lib/numerology.js";
+import { pythagoreanNumerologyOf, chaldeanNumerologyOf } from "../lib/numerology.js";
 import { parseDate, isInRange, zodiacOf, dayOfWeek, moonPhase, dateFacts } from "../lib/dates.js";
 import { geocode, reverseGeocode, locationFacts } from "../lib/geo.js";
 
@@ -164,7 +164,11 @@ export default function Recognizer() {
       instanceOf: wikidata?.instanceOf || null,
       ...dateDerived,
       numbers: facts,
-      numerology: numerologyOf(displayName),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(displayName),
+        chaldean: chaldeanNumerologyOf(displayName),
+        deepReduced: null,
+      },
       thumbnail: wiki?.thumbnail || null,
     };
     setNodes((n) => [...n, node]);
@@ -201,7 +205,11 @@ export default function Recognizer() {
       tokens: [...new Set(tokens.filter((t) => t.length > 4))].slice(0, 50),
       repeated, names, numbers,
       letterFreq: lf,
-      numerology: numerologyOf(displayName),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(displayName),
+        chaldean: chaldeanNumerologyOf(displayName),
+        deepReduced: null,
+      },
     };
     setNodes((n) => [...n, node]);
     if (!presetText) setTextInput("");
@@ -230,7 +238,11 @@ export default function Recognizer() {
       numbers: data.numbers,
       colors,
       albumArt: data.albumArt,
-      numerology: numerologyOf((data.title || "") + " " + (data.artist || "")),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf((data.title || "") + " " + (data.artist || "")),
+        chaldean: chaldeanNumerologyOf((data.title || "") + " " + (data.artist || "")),
+        deepReduced: null,
+      },
     };
     setNodes((n) => [...n, node]);
     setLoading(null);
@@ -258,7 +270,11 @@ export default function Recognizer() {
       gps: data.gps,
       photoDate: data.parsedDate,
       numbers: data.numbers,
-      numerology: data.colorNumerology || numerologyOf(file.name),
+      numerology: data.colorNumerology || {
+        pythagorean: pythagoreanNumerologyOf(file.name),
+        chaldean: chaldeanNumerologyOf(file.name),
+        deepReduced: null,
+      },
     };
     setNodes((n) => [...n, node]);
 
@@ -289,7 +305,11 @@ export default function Recognizer() {
       dayOfWeek: inRange ? dayOfWeek(d) : null,
       moonPhase: inRange ? moonPhase(d) : null,
       numbers,
-      numerology: numerologyOf(label + " " + iso.replace(/-/g, "")),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(label + " " + iso.replace(/-/g, "")),
+        chaldean: chaldeanNumerologyOf(label + " " + iso.replace(/-/g, "")),
+        deepReduced: null,
+      },
     };
     if (!inRange) {
       setWarning(`Date outside ${LIMITS.DATE_MIN_YEAR}–${LIMITS.DATE_MAX_YEAR}. The historical record is incomplete for this period.`);
@@ -322,7 +342,11 @@ export default function Recognizer() {
       wikidataId: wiki?.wikidataId || null,
       instanceOf: wikidata?.instanceOf || null,
       numbers: facts,
-      numerology: numerologyOf(loc.name),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(loc.name),
+        chaldean: chaldeanNumerologyOf(loc.name),
+        deepReduced: null,
+      },
     };
   };
 
@@ -368,7 +392,11 @@ export default function Recognizer() {
       url: parsed.url, domain: parsed.domain, path: parsed.path,
       numbers: parsed.numbers,
       // Full URL drives numerology — captures path letters too, not just domain.
-      numerology: numerologyOf(parsed.url),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(parsed.url),
+        chaldean: chaldeanNumerologyOf(parsed.url),
+        deepReduced: null,
+      },
     };
     if (text) {
       const tokens = tokenize(text);
@@ -411,7 +439,11 @@ export default function Recognizer() {
       coverUrl: book.coverId ? `https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg` : null,
       queriedAs: wasSubstituted ? q : null,
       numbers,
-      numerology: numerologyOf(book.title + " " + book.author),
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(book.title + " " + book.author),
+        chaldean: chaldeanNumerologyOf(book.title + " " + book.author),
+        deepReduced: null,
+      },
     };
     setNodes((n) => [...n, node]);
     if (!presetTitle) setBookInput("");
@@ -791,16 +823,16 @@ export default function Recognizer() {
                         <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700 }}>{v}</td>
                       </tr>
                     ))}
-                    {settings.enableNumerology && node.numerology && (
+                    {settings.enableNumerology && node.numerology?.pythagorean && (
                       <tr style={{ borderBottom: "1px dotted rgba(232,220,196,0.2)" }}>
                         <td style={{ padding: "3px 8px 3px 0", opacity: 0.7 }}>numerology (Pythagorean)</td>
                         <td style={{ padding: "3px 0", textAlign: "right", color: "#d6a85f", fontWeight: 700, fontSize: 11 }}>
-                          {node.numerology.source
-                            ? (node.numerology.source.length > 20
-                                ? node.numerology.source.slice(0, 18).toUpperCase() + "…"
-                                : node.numerology.source.toUpperCase())
+                          {node.numerology.pythagorean.source
+                            ? (node.numerology.pythagorean.source.length > 20
+                                ? node.numerology.pythagorean.source.slice(0, 18).toUpperCase() + "…"
+                                : node.numerology.pythagorean.source.toUpperCase())
                             : "?"}
-                          {" → "}{node.numerology.sum}{" → "}{node.numerology.reduced}
+                          {" → "}{node.numerology.pythagorean.sum}{" → "}{node.numerology.pythagorean.reduced}
                         </td>
                       </tr>
                     )}

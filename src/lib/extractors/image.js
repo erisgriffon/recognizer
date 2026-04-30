@@ -1,5 +1,5 @@
 import exifr from "exifr";
-import { numerologyOf } from "../numerology.js";
+import { pythagoreanNumerologyOf, chaldeanNumerologyOf } from "../numerology.js";
 
 // Quantize image into ~5 dominant colors using a downsampled bucket approach.
 // Returns array of { rgb: [r,g,b], hex: '#rrggbb', count }.
@@ -96,7 +96,14 @@ export const analyzeImage = async (file) => {
   // 0-255 channel integers collide too readily with everything else and the
   // resulting "color 3 G of image equals days since birthday" findings are
   // pure noise. Colors should match colors, not character counts.
-  const colorNumerology = colors.length > 0 ? numerologyOf(colors.map((c) => c.hex.replace("#", "")).join("")) : null;
+  const colorHexConcat = colors.length > 0 ? colors.map((c) => c.hex.replace("#", "")).join("") : null;
+  const colorNumerology = colorHexConcat
+    ? {
+        pythagorean: pythagoreanNumerologyOf(colorHexConcat),
+        chaldean: chaldeanNumerologyOf(colorHexConcat),
+        deepReduced: null,
+      }
+    : null;
 
   return {
     dataUrl, exif, colors, numbers,

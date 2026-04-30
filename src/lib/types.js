@@ -7,10 +7,17 @@
  */
 
 /**
- * @typedef {Object} Numerology
+ * @typedef {Object} NumerologyValue
  * @property {number} sum     - digital sum before reduction.
  * @property {number} reduced - reduced single-digit (or master) value.
  * @property {string} source  - human-readable derivation string, shown in CAPS in prose.
+ */
+
+/**
+ * @typedef {Object} Numerology
+ * @property {NumerologyValue|null} pythagorean - Pythagorean (A=1..I=9, J=1..) reduction. Drives Surface tier.
+ * @property {NumerologyValue|null} chaldean    - Chaldean (1–8 letter table, 9 reserved). Drives Standard tier.
+ * @property {Object<string, number>|null} deepReduced - Deep tier: each numeric fact reduced to a single digit. Computed lazily by the engine when depth=3.
  */
 
 /**

@@ -52,8 +52,9 @@ export const buildTodayObservation = (todayNode, seed, includeNumerology) => {
     historical = " " + pick(TODAY_HISTORICAL, seed * 11)(chosen);
   }
   let numerology = "";
-  if (includeNumerology && todayNode.numerology) {
-    numerology = " " + pick(TODAY_NUMEROLOGY, seed * 13)(todayNode.numerology.sum, todayNode.numerology.reduced);
+  const pyth = todayNode.numerology?.pythagorean;
+  if (includeNumerology && pyth) {
+    numerology = " " + pick(TODAY_NUMEROLOGY, seed * 13)(pyth.sum, pyth.reduced);
   }
   const closer = " " + pick(TODAY_CLOSERS, seed * 17);
   return `${opener} ${framing}.${historical}${numerology}${closer}`;

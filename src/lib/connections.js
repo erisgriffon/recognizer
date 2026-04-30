@@ -72,9 +72,9 @@ export const findConnections = (nodes, settings = {}) => {
 
   // ---- Numerology ----
   if (enableNumerology) {
-    const numerologyFacts = nodes.filter((n) => n.numerology).map((n) => ({
-      nodeId: n.id, nodeName: n.name, ...n.numerology,
-    }));
+    const numerologyFacts = nodes
+      .filter((n) => n.numerology?.pythagorean)
+      .map((n) => ({ nodeId: n.id, nodeName: n.name, ...n.numerology.pythagorean }));
     for (let i = 0; i < numerologyFacts.length; i++) {
       for (let j = i + 1; j < numerologyFacts.length; j++) {
         const a = numerologyFacts[i], b = numerologyFacts[j];

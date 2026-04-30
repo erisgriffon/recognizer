@@ -1,5 +1,5 @@
 import { daysBetween, zodiacOf, dayOfWeek, moonPhase } from "../dates.js";
-import { numerologyOf } from "../numerology.js";
+import { pythagoreanNumerologyOf, chaldeanNumerologyOf } from "../numerology.js";
 
 export const buildTodayNode = (events = []) => {
   const now = new Date();
@@ -50,6 +50,10 @@ export const buildTodayNode = (events = []) => {
     moonPhase: moonPhase(now),
     events,
     numbers,
-    numerology: numerologyOf("today " + now.toISOString().slice(0, 10).replace(/-/g, "")),
+    numerology: {
+      pythagorean: pythagoreanNumerologyOf("today " + now.toISOString().slice(0, 10).replace(/-/g, "")),
+      chaldean: chaldeanNumerologyOf("today " + now.toISOString().slice(0, 10).replace(/-/g, "")),
+      deepReduced: null,
+    },
   };
 };

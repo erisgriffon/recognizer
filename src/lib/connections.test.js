@@ -77,8 +77,8 @@ describe("findConnections — non-numeric kinds", () => {
   it("kind=numerology: two names that reduce to the same digit", () => {
     // A→1, both names are length 1 letter so they trivially share reduction
     const nodes = [
-      node("a", "name", "A", { numerology: { sum: 1, reduced: 1, source: "A" } }),
-      node("b", "name", "J", { numerology: { sum: 1, reduced: 1, source: "J" } }),
+      node("a", "name", "A", { numerology: { pythagorean: { sum: 1, reduced: 1, source: "A" }, chaldean: null, deepReduced: null } }),
+      node("b", "name", "J", { numerology: { pythagorean: { sum: 1, reduced: 1, source: "J" }, chaldean: null, deepReduced: null } }),
     ];
     const num = findConnections(nodes).find((c) => c.kind === "numerology");
     expect(num).toBeTruthy();
@@ -88,8 +88,8 @@ describe("findConnections — non-numeric kinds", () => {
 
   it("settings.enableNumerology=false suppresses numerology connections", () => {
     const nodes = [
-      node("a", "name", "A", { numerology: { sum: 1, reduced: 1, source: "A" } }),
-      node("b", "name", "J", { numerology: { sum: 1, reduced: 1, source: "J" } }),
+      node("a", "name", "A", { numerology: { pythagorean: { sum: 1, reduced: 1, source: "A" }, chaldean: null, deepReduced: null } }),
+      node("b", "name", "J", { numerology: { pythagorean: { sum: 1, reduced: 1, source: "J" }, chaldean: null, deepReduced: null } }),
     ];
     expect(findKinds(nodes, { enableNumerology: false })).not.toContain("numerology");
   });
