@@ -52,10 +52,27 @@ export const rephrasers = {
     const aDeriv = `${showSrc(c.a.source)} → digital sum ${c.a.sum} → reduced to ${c.value}`;
     const bDeriv = `${showSrc(c.b.source)} → digital sum ${c.b.sum} → reduced to ${c.value}`;
     return pick([
-      `${c.a.nodeName}, reduced numerologically (Pythagorean: A=1, B=2, …, I=9, J=1 …), yields ${c.value} (${aDeriv}); ${c.b.nodeName}, reduced by the same method, yields the identical ${c.value} (${bDeriv})`,
-      `the numerological signatures of ${c.a.nodeName} and ${c.b.nodeName} converge on ${c.value} — derived as ${aDeriv}, and ${bDeriv}, respectively. A result the ancients would not have considered accidental`,
+      `${c.a.nodeName}, reduced numerologically (Pythagorean: A=1, B=2, …, I=9, J=1 …), yields ${c.value} (${aDeriv}); ${c.b.nodeName}, reduced by the same Pythagorean method, yields the identical ${c.value} (${bDeriv})`,
+      `the Pythagorean numerological signatures of ${c.a.nodeName} and ${c.b.nodeName} converge on ${c.value} — derived as ${aDeriv}, and ${bDeriv}, respectively. A result the ancients would not have considered accidental`,
     ], c.value * 7);
   },
+  "numerology-chaldean": (c) => {
+    const showSrc = (s) => {
+      if (!s) return "?";
+      const up = s.toUpperCase();
+      return up.length > 16 ? up.slice(0, 14) + "…" : up;
+    };
+    const aDeriv = `${showSrc(c.a.source)} → ${c.a.sum} → ${c.value}`;
+    const bDeriv = `${showSrc(c.b.source)} → ${c.b.sum} → ${c.value}`;
+    return pick([
+      `under Chaldean reduction (a system the ancient Babylonians considered more accurate than Pythagorean — assigning letters to digits 1 through 8, with 9 held in reserve), ${c.a.nodeName} and ${c.b.nodeName} both yield ${c.value} (${aDeriv}, and ${bDeriv} respectively)`,
+      `the Chaldean numerological values of ${c.a.nodeName} and ${c.b.nodeName} converge on ${c.value}. The reader should note that Chaldean uses a different letter-to-digit table than the more common Pythagorean system, so this is a separate finding — derived as ${aDeriv}, and ${bDeriv}`,
+    ], c.value * 11);
+  },
+  "numerology-double": (c) =>
+    `${c.a.nodeName} and ${c.b.nodeName} converge on ${c.value} under BOTH Pythagorean AND Chaldean numerological reduction — two distinct ancient systems, with different letter values, agreeing on the same digit. The investigator submits this without further commentary`,
+  "numerology-deep": (c) =>
+    `the ${c.a.factLabel} of ${c.a.nodeName} (${c.a.originalValue}) and the ${c.b.factLabel} of ${c.b.nodeName} (${c.b.originalValue}) both reduce, by repeated digital summation, to ${c.value}. The investigator notes this with appropriate epistemic humility`,
   "word-overlap": (c) => `${c.a.nodeName} and ${c.b.nodeName} share unusual vocabulary, including ${c.words.map((w) => `"${w}"`).join(", ")} — words which, statistically, ought not to co-occur in unrelated documents`,
   stylometric: (c) => `the letter-frequency distributions of ${c.a.nodeName} and ${c.b.nodeName} exhibit a cosine similarity of ${(c.similarity * 100).toFixed(1)}%, a value used in stylometric authorship analysis. Identical authorship cannot be ruled out`,
   "wordcount-year": (c) => `the word count of ${c.a.nodeName} (${c.a.value}) is precisely equal to the ${c.b.label} of ${c.b.nodeName}. The investigator notes that documents of arbitrary length do not, as a rule, terminate on dates of historical significance`,

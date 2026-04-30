@@ -52,10 +52,7 @@ for "imperative library + React closures."
 
 ## Other deferred items
 
-### favicon and proper meta tags
-
-### GitHub repo README
-
-### wire up `npm run preview` to test the production build locally before deploying
-
-### better sample investigation (tesla doesn't link to any of the other things)
+1. favicon and proper meta tags
+2. GitHub repo README
+3. wire up `npm run preview` to test the production build locally before deploying
+4. better sample investigation (tesla doesn't link to any of the other things)
