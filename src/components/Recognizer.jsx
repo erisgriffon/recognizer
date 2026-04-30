@@ -16,7 +16,9 @@ import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
 import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
 
+import { serializeCaseFile } from "../lib/share/serialize.js";
 import { buildPlaceholderMediaNode, isValidCaseFile } from "../lib/share/deserialize.js";
+import { encodeCaseFileToFragment, URL_LENGTH_BUDGET } from "../lib/share/url.js";
 
 import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor, connectionsForNode } from "../lib/connections.js";
 import { TIERS } from "../lib/connections.config.js";
@@ -52,6 +54,7 @@ export default function Recognizer() {
   const [loading, setLoading] = useState(null);
   const [showDossier, setShowDossier] = useState(false);
   const [warning, setWarning] = useState(null);
+  const [shareConfirm, setShareConfirm] = useState(null);
 
   // Settings — soft connection toggles + dev tools.
   // numerologyDepth: 0 = Off, 1 = Surface (Pythagorean), 2 = Standard (+ Chaldean),
@@ -570,15 +573,40 @@ export default function Recognizer() {
     setLoading(null);
   };
 
-  const shareState = async () => {
-    const slim = effectiveNodes.map((n) => ({ type: n.type, name: n.name, numbers: n.numbers }));
-    const json = JSON.stringify(slim);
-    try {
-      await navigator.clipboard.writeText(json);
-      alert("Investigation state copied to clipboard.");
-    } catch (e) {
-      alert("Could not copy. Here it is:\n\n" + json);
+  const shareCaseFile = async () => {
+    const caseFile = serializeCaseFile(effectiveNodes, settings);
+    const fragment = encodeCaseFileToFragment(caseFile);
+    const url = `${window.location.origin}${window.location.pathname}#${fragment}`;
+
+    if (url.length > URL_LENGTH_BUDGET) {
+      setWarning("Case file too large to share via URL. Use 📦 EXPORT JSON for backup, or remove some evidence.");
+      return;
     }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareConfirm({
+        kind: "ok",
+        message: "Link copied to clipboard. Anyone with the URL can view this case file. Don't share investigations of real people you wouldn't want public.",
+      });
+    } catch (e) {
+      setShareConfirm({
+        kind: "manual",
+        message: "Could not copy automatically. Here is the URL — copy it yourself:",
+        url,
+      });
+    }
+  };
+
+  const exportCaseFileAsJSON = () => {
+    const caseFile = serializeCaseFile(effectiveNodes, settings);
+    const blob = new Blob([JSON.stringify(caseFile, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `recognizer-case-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const downloadDossier = () => {
@@ -782,6 +810,36 @@ export default function Recognizer() {
             ⚠ {warning}
           </div>
         )}
+        {shareConfirm && (
+          <div style={{
+            padding: "12px 16px", marginBottom: 16,
+            background: "rgba(40, 28, 18, 0.7)",
+            border: "1px solid #aa8855", color: "#e8dcc4",
+            fontSize: 12, lineHeight: 1.5,
+            display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#d6a85f", marginBottom: 4 }}>
+                {shareConfirm.kind === "ok" ? "✓" : "↯"} {shareConfirm.message}
+              </div>
+              {shareConfirm.url && (
+                <input
+                  type="text"
+                  readOnly
+                  value={shareConfirm.url}
+                  onFocus={(e) => e.target.select()}
+                  style={{ ...inputStyle, marginTop: 6, fontSize: 11 }}
+                />
+              )}
+            </div>
+            <button
+              onClick={() => setShareConfirm(null)}
+              style={{ ...buttonStyle, padding: "2px 10px", fontSize: 11 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {loading && (
           <div style={{ textAlign: "center", marginBottom: 16, color: "#d6a85f", fontSize: 12, letterSpacing: "0.15em" }}>
             ░▒▓ {loading} ▓▒░
@@ -798,7 +856,8 @@ export default function Recognizer() {
           {effectiveNodes.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setShowDossier(true)} style={buttonStyle}>📄 DOSSIER</button>
-              <button onClick={shareState} style={buttonStyle}>⇗ SHARE</button>
+              <button onClick={shareCaseFile} style={buttonStyle}>⇗ SHARE</button>
+              <button onClick={exportCaseFileAsJSON} style={tabStyle}>📦 EXPORT JSON</button>
             </div>
           )}
         </div>
