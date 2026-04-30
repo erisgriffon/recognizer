@@ -40,17 +40,9 @@ export const zodiacOf = (date) => {
   return "Capricorn";
 };
 
-// Traditional fire/earth/air/water elements
-export const ZODIAC_ELEMENTS = {
-  Aries: "fire", Leo: "fire", Sagittarius: "fire",
-  Taurus: "earth", Virgo: "earth", Capricorn: "earth",
-  Gemini: "air", Libra: "air", Aquarius: "air",
-  Cancer: "water", Scorpio: "water", Pisces: "water",
-};
-
-// Compatible signs by element (within element = compatible).
-export const zodiacCompatible = (a, b) =>
-  a !== b && ZODIAC_ELEMENTS[a] && ZODIAC_ELEMENTS[a] === ZODIAC_ELEMENTS[b];
+// Element classification and compatibility live in astrology.js now —
+// astrology grew enough surface area to warrant its own module. dates.js
+// keeps only calendar-derivation helpers (zodiacOf above, dayOfWeek below).
 
 export const dayOfWeek = (date) =>
   ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getDay()];

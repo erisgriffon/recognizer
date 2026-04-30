@@ -1,6 +1,6 @@
 import { haversineKm, isLeyLine } from "./geo.js";
 import { anagramSignature, multisetEditDistance } from "./numerology.js";
-import { ZODIAC_ELEMENTS, zodiacCompatible } from "./dates.js";
+import { ZODIAC_ELEMENTS, zodiacCompatible } from "./astrology.js";
 import { colorDistance } from "./extractors/image.js";
 import { STRENGTH, TIERS, NUMERIC_THRESHOLDS } from "./connections.config.js";
 
