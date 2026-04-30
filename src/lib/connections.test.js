@@ -168,6 +168,114 @@ describe("strengthTier — named tiers replace 'CONFIDENCE %'", () => {
   });
 });
 
+describe("findConnections — numerology depth tiers", () => {
+  // Helper: build a node that already has both numerology systems precomputed,
+  // so we can test the engine without going through the extractor pipeline.
+  // Pyth/Chal reductions are picked to put the pair into a specific cell of
+  // the agreement matrix (both, Pyth-only, Chal-only, neither).
+  const numNode = (id, name, pythReduced, chalReduced, extras = {}) => ({
+    id, type: "name", name,
+    numbers: extras.numbers || {},
+    numerology: {
+      pythagorean: pythReduced == null ? null : { sum: pythReduced, reduced: pythReduced, source: name.toUpperCase() },
+      chaldean: chalReduced == null ? null : { sum: chalReduced, reduced: chalReduced, source: name.toUpperCase() },
+      deepReduced: null,
+    },
+    ...extras,
+  });
+
+  it("depth=0 produces zero numerology connections of any flavor", () => {
+    const nodes = [
+      numNode("a", "A", 1, 1),
+      numNode("b", "J", 1, 1),
+    ];
+    const kinds = findKinds(nodes, { numerologyDepth: 0 });
+    expect(kinds).not.toContain("numerology");
+    expect(kinds).not.toContain("numerology-chaldean");
+    expect(kinds).not.toContain("numerology-double");
+    expect(kinds).not.toContain("numerology-deep");
+  });
+
+  it("default depth (no setting) = 1 (Surface) — same behavior as the old enableNumerology=true", () => {
+    // Pyth match, Chaldean differs — should produce only the Pythagorean connection.
+    const nodes = [
+      numNode("a", "A", 1, 1),
+      numNode("b", "S", 1, 3),
+    ];
+    const conns = findConnections(nodes); // no settings at all
+    const numerology = conns.filter((c) => c.kind === "numerology");
+    expect(numerology.length).toBe(1);
+    expect(numerology[0].strength).toBe(STRENGTH.NUMEROLOGY);
+  });
+
+  it("depth=2 with Chaldean-only match emits a numerology-chaldean (not numerology)", () => {
+    // C: Pyth=3, Chal=3 ; G: Pyth=7, Chal=3 — Chaldean agrees, Pythagorean does not.
+    const nodes = [
+      numNode("a", "C", 3, 3),
+      numNode("b", "G", 7, 3),
+    ];
+    const conns = findConnections(nodes, { numerologyDepth: 2 });
+    const kinds = conns.map((c) => c.kind);
+    expect(kinds).not.toContain("numerology");
+    const ch = conns.find((c) => c.kind === "numerology-chaldean");
+    expect(ch).toBeTruthy();
+    expect(ch.value).toBe(3);
+    expect(ch.strength).toBe(STRENGTH.NUMEROLOGY_CHALDEAN);
+  });
+
+  it("depth=2 with both systems agreeing collapses into a single numerology-double, not two separate findings", () => {
+    // A: Pyth=1, Chal=1 ; J: Pyth=1, Chal=1 — both systems agree.
+    const nodes = [
+      numNode("a", "A", 1, 1),
+      numNode("b", "J", 1, 1),
+    ];
+    const conns = findConnections(nodes, { numerologyDepth: 2 });
+    // No bare "numerology" or "numerology-chaldean" between this pair —
+    // exactly one merged "numerology-double".
+    expect(conns.filter((c) => c.kind === "numerology").length).toBe(0);
+    expect(conns.filter((c) => c.kind === "numerology-chaldean").length).toBe(0);
+    const doubles = conns.filter((c) => c.kind === "numerology-double");
+    expect(doubles.length).toBe(1);
+    expect(doubles[0].strength).toBe(STRENGTH.NUMEROLOGY_DOUBLE);
+    expect(doubles[0].chaldeanValue).toBe(1);
+  });
+
+  it("depth=1 with both systems agreeing only emits the Pythagorean finding (Chaldean is gated)", () => {
+    const nodes = [
+      numNode("a", "A", 1, 1),
+      numNode("b", "J", 1, 1),
+    ];
+    const conns = findConnections(nodes, { numerologyDepth: 1 });
+    expect(conns.filter((c) => c.kind === "numerology").length).toBe(1);
+    expect(conns.filter((c) => c.kind === "numerology-chaldean").length).toBe(0);
+    expect(conns.filter((c) => c.kind === "numerology-double").length).toBe(0);
+  });
+
+  it("depth=3 emits numerology-deep for facts on different nodes that share a reduced digit", () => {
+    // 18 → 1+8 = 9 ; 27 → 2+7 = 9 — both reduce to 9.
+    // 14 → 1+4 = 5 — does not match.
+    const nodes = [
+      numNode("a", "A", 1, 1, { numbers: { "x": 18 } }),
+      numNode("b", "B", 2, 2, { numbers: { "y": 27, "z": 14 } }),
+    ];
+    const conns = findConnections(nodes, { numerologyDepth: 3 });
+    const deep = conns.filter((c) => c.kind === "numerology-deep");
+    expect(deep.length).toBe(1);
+    expect(deep[0].value).toBe(9);
+    expect(deep[0].strength).toBe(STRENGTH.NUMEROLOGY_DEEP);
+  });
+
+  it("depth=3 does NOT emit deep connections between facts on the same node", () => {
+    // Both facts are on node "a" and both reduce to 9. No connection should
+    // be emitted (same-node pairs are excluded).
+    const nodes = [
+      numNode("a", "A", 1, 1, { numbers: { "x": 18, "y": 27 } }),
+    ];
+    const conns = findConnections(nodes, { numerologyDepth: 3 });
+    expect(conns.filter((c) => c.kind === "numerology-deep").length).toBe(0);
+  });
+});
+
 describe("connections.config — STRENGTH has every key the engine references", () => {
   // Catches typos when someone adds a new connection kind with a constant
   // that doesn't exist on the STRENGTH map (would silently produce strength=undefined).
