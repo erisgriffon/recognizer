@@ -16,6 +16,10 @@ import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
 import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
 
+import { serializeCaseFile } from "../lib/share/serialize.js";
+import { buildPlaceholderMediaNode, isValidCaseFile } from "../lib/share/deserialize.js";
+import { encodeCaseFileToFragment, decodeCaseFileFromFragment, URL_LENGTH_BUDGET } from "../lib/share/url.js";
+
 import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor, connectionsForNode } from "../lib/connections.js";
 import { TIERS } from "../lib/connections.config.js";
 import { narrateConnection } from "../lib/narrative/connection.js";
@@ -50,6 +54,7 @@ export default function Recognizer() {
   const [loading, setLoading] = useState(null);
   const [showDossier, setShowDossier] = useState(false);
   const [warning, setWarning] = useState(null);
+  const [shareConfirm, setShareConfirm] = useState(null);
 
   // Settings — soft connection toggles + dev tools.
   // numerologyDepth: 0 = Off, 1 = Surface (Pythagorean), 2 = Standard (+ Chaldean),
@@ -400,8 +405,8 @@ export default function Recognizer() {
     setLoading(null);
   };
 
-  const addUrlNode = async () => {
-    const url = urlInput.trim();
+  const addUrlNode = async (presetUrl = null) => {
+    const url = (presetUrl || urlInput).trim();
     if (!url) return;
     if (url.length > LIMITS.URL_MAX_CHARS) {
       setWarning("URL too long.");
@@ -439,7 +444,7 @@ export default function Recognizer() {
     }
 
     setNodes((n) => [...n, baseNode]);
-    setUrlInput("");
+    if (!presetUrl) setUrlInput("");
   };
 
   const addBookNode = async (presetTitle = null) => {
@@ -511,15 +516,112 @@ export default function Recognizer() {
     setLoading(null);
   };
 
-  const shareState = async () => {
-    const slim = effectiveNodes.map((n) => ({ type: n.type, name: n.name, numbers: n.numbers }));
-    const json = JSON.stringify(slim);
-    try {
-      await navigator.clipboard.writeText(json);
-      alert("Investigation state copied to clipboard.");
-    } catch (e) {
-      alert("Could not copy. Here it is:\n\n" + json);
+  // Reconstruct a case file from a seed by replaying the same node-creation
+  // flows the user would have triggered manually. Re-uses the existing
+  // adders so imported nodes are byte-for-byte identical to fresh ones.
+  // Media (image/audio) gets a degraded placeholder — bytes don't fit in
+  // a URL. Failures along the way don't roll back: a partial import is
+  // strictly better than no import.
+  const importCaseFile = async (caseFile) => {
+    if (!isValidCaseFile(caseFile)) return;
+    setNodes([]);
+    setSelectedNodeId(null);
+    if (caseFile.s) {
+      setSettings((prev) => ({ ...prev, ...caseFile.s }));
     }
+    setLoading("Reconstructing case file…");
+    for (const seed of caseFile.n) {
+      try {
+        switch (seed.t) {
+          case "name":
+            await addNameNode(seed.v);
+            break;
+          case "text":
+            addTextNode(seed.v);
+            break;
+          case "date":
+            addDateNode({ iso: seed.v, label: seed.l || "date" });
+            break;
+          case "location":
+            await addLocationFromSearch(seed.v);
+            break;
+          case "url":
+            await addUrlNode(seed.v);
+            break;
+          case "book":
+            await addBookNode(seed.v);
+            break;
+          case "today":
+            // The recipient gets their own "today" — what the sender
+            // observed isn't transmitted. This is intentional: today
+            // shows the recipient's day, preserving the magic moment.
+            promoteToday();
+            break;
+          case "image":
+          case "audio": {
+            const node = buildPlaceholderMediaNode(seed.t, seed.v || {});
+            setNodes((n) => [...n, node]);
+            break;
+          }
+          default:
+            break;
+        }
+      } catch (e) {
+        // Swallow per-seed failures; the surrounding loop keeps going.
+      }
+    }
+    setLoading(null);
+  };
+
+  // Mount-time hash import: if the user landed on a #case=... URL, decode
+  // the seed and replay it through the existing adders. Bad/missing
+  // hashes silently no-op — the user just sees the empty starting state.
+  // After a successful decode we strip the hash via replaceState so a
+  // refresh doesn't re-import and the URL bar isn't permanently ugly.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const caseFile = decodeCaseFileFromFragment(hash);
+    if (!caseFile) return;
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    importCaseFile(caseFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const shareCaseFile = async () => {
+    const caseFile = serializeCaseFile(effectiveNodes, settings);
+    const fragment = encodeCaseFileToFragment(caseFile);
+    const url = `${window.location.origin}${window.location.pathname}#${fragment}`;
+
+    if (url.length > URL_LENGTH_BUDGET) {
+      setWarning("Case file too large to share via URL. Use 📦 EXPORT JSON for backup, or remove some evidence.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareConfirm({
+        kind: "ok",
+        message: "Link copied to clipboard. Anyone with the URL can view this case file. Don't share investigations of real people you wouldn't want public.",
+      });
+    } catch (e) {
+      setShareConfirm({
+        kind: "manual",
+        message: "Could not copy automatically. Here is the URL — copy it yourself:",
+        url,
+      });
+    }
+  };
+
+  const exportCaseFileAsJSON = () => {
+    const caseFile = serializeCaseFile(effectiveNodes, settings);
+    const blob = new Blob([JSON.stringify(caseFile, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `recognizer-case-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const downloadDossier = () => {
@@ -616,7 +718,7 @@ export default function Recognizer() {
               placeholder="https://example.com/article"
               onKeyDown={(e) => e.key === "Enter" && addUrlNode()}
               style={inputStyle} />
-            <button onClick={addUrlNode} style={buttonStyle}>▸ TRACE URL</button>
+            <button onClick={() => addUrlNode()} style={buttonStyle}>▸ TRACE URL</button>
             <p style={{ fontSize: 10, opacity: 0.5, margin: "6px 0 0" }}>
               Page contents fetched if CORS allows; URL itself analyzed regardless.
             </p>
@@ -723,6 +825,36 @@ export default function Recognizer() {
             ⚠ {warning}
           </div>
         )}
+        {shareConfirm && (
+          <div style={{
+            padding: "12px 16px", marginBottom: 16,
+            background: "rgba(40, 28, 18, 0.7)",
+            border: "1px solid #aa8855", color: "#e8dcc4",
+            fontSize: 12, lineHeight: 1.5,
+            display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12,
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#d6a85f", marginBottom: 4 }}>
+                {shareConfirm.kind === "ok" ? "✓" : "↯"} {shareConfirm.message}
+              </div>
+              {shareConfirm.url && (
+                <input
+                  type="text"
+                  readOnly
+                  value={shareConfirm.url}
+                  onFocus={(e) => e.target.select()}
+                  style={{ ...inputStyle, marginTop: 6, fontSize: 11 }}
+                />
+              )}
+            </div>
+            <button
+              onClick={() => setShareConfirm(null)}
+              style={{ ...buttonStyle, padding: "2px 10px", fontSize: 11 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {loading && (
           <div style={{ textAlign: "center", marginBottom: 16, color: "#d6a85f", fontSize: 12, letterSpacing: "0.15em" }}>
             ░▒▓ {loading} ▓▒░
@@ -739,7 +871,8 @@ export default function Recognizer() {
           {effectiveNodes.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button onClick={() => setShowDossier(true)} style={buttonStyle}>📄 DOSSIER</button>
-              <button onClick={shareState} style={buttonStyle}>⇗ SHARE</button>
+              <button onClick={shareCaseFile} style={buttonStyle}>⇗ SHARE</button>
+              <button onClick={exportCaseFileAsJSON} style={tabStyle}>📦 EXPORT JSON</button>
             </div>
           )}
         </div>
