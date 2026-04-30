@@ -226,3 +226,26 @@ If a future `npm install` ever fails with `ERESOLVE`, the right move is
 is pulling in a stale peer and decide whether you actually need it.
 Reaching for `--legacy-peer-deps` lets a broken dep tree into the lockfile
 and turns into project lore nobody can explain six months later.
+
+### Cross-platform `npm ci` (Cloudflare deploys)
+
+npm 10.x has a long-standing bug (npm/cli#4828) where platform-specific
+optional dependencies — most notably the per-OS `@esbuild/*` binaries that
+vite and vitest depend on — get written into `package-lock.json` without
+their `optional: true` flag. `npm ci` then refuses to install them on a
+different OS, with `EBADPLATFORM`. This bit us when Cloudflare's Linux
+builder choked on a lockfile generated on Windows.
+
+The fix lives in `scripts/fix-lockfile.js`, which scans the lockfile and
+adds `optional: true` to every package with an `os` or `cpu` constraint.
+A `postinstall` script in `package.json` runs it automatically after
+every `npm install`, so the lockfile is always portable when committed.
+
+If a Cloudflare build ever fails with `EBADPLATFORM` again:
+1. Run `npm run fix-lockfile` locally.
+2. Commit the patched `package-lock.json`.
+3. Push — the next deploy should succeed.
+
+If npm 11.x or later fixes the upstream bug, the postinstall hook becomes
+a no-op (it reports "lockfile already clean"). Safe to leave in place
+either way.

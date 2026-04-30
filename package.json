@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "fix-lockfile": "node scripts/fix-lockfile.js",
+    "postinstall": "node scripts/fix-lockfile.js"
   },
   "dependencies": {
     "exifr": "^7.1.3",
