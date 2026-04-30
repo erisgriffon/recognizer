@@ -1,4 +1,9 @@
 import { haversineKm, isLeyLine } from "./geo.js";
+import {
+  isAntipodal, longitudeTimeZone, isOnGreatCircle,
+  isNearMagneticPole, MAGNETIC_NORTH_2025, MAGNETIC_SOUTH_2025,
+  elevationBand,
+} from "./geography.js";
 import { anagramSignature, multisetEditDistance } from "./numerology.js";
 import {
   ZODIAC_ELEMENTS, ZODIAC_MODALITIES, zodiacCompatible,
@@ -20,7 +25,7 @@ export const findConnections = (nodes, settings = {}) => {
     numerologyDepth = 1,
     lexicalDepth = 1,
     astrologyDepth = 1,
-    enableLeyLines = true,
+    geographicDepth = 1,
   } = settings;
 
   const connections = [];
@@ -558,47 +563,223 @@ export const findConnections = (nodes, settings = {}) => {
     }
   }
 
-  // ---- Location distance + ley lines ----
+  // ---- Geographic ----
+  // Depth tiers: 0 = off (no geographic findings at all), 1 = Surface
+  // (distance + distance-match + pairwise ley-lines, today's behavior),
+  // 2 = Standard (single-finding ley-lines, antipodes, time zones, country),
+  // 3 = Deep (also great-circle waypoints, magnetic poles, elevation bands;
+  // ley-line tolerance loosens from 0.5° to 1.5° to surface more triangles).
   const locationNodes = nodes.filter((n) => n.type === "location" && n.lat !== undefined);
-  for (let i = 0; i < locationNodes.length; i++) {
-    for (let j = i + 1; j < locationNodes.length; j++) {
-      const a = locationNodes[i], b = locationNodes[j];
-      const km = haversineKm(a.lat, a.lng, b.lat, b.lng);
-      // Distance collisions with other numeric facts
-      numericFacts.forEach((f) => {
-        if (f.nodeId === a.id || f.nodeId === b.id) return;
-        if (f.value === km && km > 1) {
-          connections.push({
-            from: a.id, to: f.nodeId, strength: STRENGTH.DISTANCE_MATCH, kind: "distance-match",
-            a: { nodeName: a.name, label: `distance to ${b.name} (km)`, value: km },
-            b: f, otherLocation: b.name,
-          });
+
+  if (geographicDepth >= 1) {
+    // Pairwise distance + distance-match across location nodes — runs at every
+    // tier from Surface up.
+    for (let i = 0; i < locationNodes.length; i++) {
+      for (let j = i + 1; j < locationNodes.length; j++) {
+        const a = locationNodes[i], b = locationNodes[j];
+        const km = haversineKm(a.lat, a.lng, b.lat, b.lng);
+        numericFacts.forEach((f) => {
+          if (f.nodeId === a.id || f.nodeId === b.id) return;
+          if (f.value === km && km > 1) {
+            connections.push({
+              from: a.id, to: f.nodeId, strength: STRENGTH.DISTANCE_MATCH, kind: "distance-match",
+              a: { nodeName: a.name, label: `distance to ${b.name} (km)`, value: km },
+              b: f, otherLocation: b.name,
+            });
+          }
+        });
+        connections.push({
+          from: a.id, to: b.id, strength: STRENGTH.DISTANCE, kind: "distance",
+          a: { nodeName: a.name }, b: { nodeName: b.name },
+          km,
+        });
+      }
+    }
+
+    // Ley lines. At Surface, emit three pairwise findings per triangle —
+    // backwards compat with the old enableLeyLines=true. At Standard+ a
+    // single ley-line-triangle is emitted instead (see block below).
+    if (geographicDepth === 1 && locationNodes.length >= 3) {
+      for (let i = 0; i < locationNodes.length; i++) {
+        for (let j = i + 1; j < locationNodes.length; j++) {
+          for (let k = j + 1; k < locationNodes.length; k++) {
+            const p1 = locationNodes[i], p2 = locationNodes[j], p3 = locationNodes[k];
+            if (isLeyLine(p1, p2, p3, 0.5)) {
+              [[p1, p2], [p2, p3], [p1, p3]].forEach(([x, y]) => {
+                connections.push({
+                  from: x.id, to: y.id, strength: STRENGTH.LEY_LINE, kind: "ley-line",
+                  a: { nodeName: x.name }, b: { nodeName: y.name },
+                  triangle: [p1.name, p2.name, p3.name],
+                });
+              });
+            }
+          }
         }
-      });
-      connections.push({
-        from: a.id, to: b.id, strength: STRENGTH.DISTANCE, kind: "distance",
-        a: { nodeName: a.name }, b: { nodeName: b.name },
-        km,
-      });
+      }
     }
   }
 
-  // Ley lines (3+ collinear locations)
-  if (enableLeyLines && locationNodes.length >= 3) {
-    for (let i = 0; i < locationNodes.length; i++) {
-      for (let j = i + 1; j < locationNodes.length; j++) {
-        for (let k = j + 1; k < locationNodes.length; k++) {
-          const p1 = locationNodes[i], p2 = locationNodes[j], p3 = locationNodes[k];
-          if (isLeyLine(p1, p2, p3, 0.5)) {
-            // Add as a triangle of connections
-            [[p1, p2], [p2, p3], [p1, p3]].forEach(([x, y]) => {
-              connections.push({
-                from: x.id, to: y.id, strength: STRENGTH.LEY_LINE, kind: "ley-line",
-                a: { nodeName: x.name }, b: { nodeName: y.name },
-                triangle: [p1.name, p2.name, p3.name],
-              });
+  if (geographicDepth >= 2) {
+    // Standard ley-line emission: one finding per triangle. Tolerance stays
+    // at 0.5° here; Deep loosens to 1.5° (handled in the depth-3 block).
+    // Routing: from/to use the lexically-smallest pair of ids so dedup is
+    // stable; participants holds all three so connectionsForNode finds it
+    // via any of the three locations.
+    if (locationNodes.length >= 3) {
+      const seenTriangles = new Set();
+      for (let i = 0; i < locationNodes.length; i++) {
+        for (let j = i + 1; j < locationNodes.length; j++) {
+          for (let k = j + 1; k < locationNodes.length; k++) {
+            const p1 = locationNodes[i], p2 = locationNodes[j], p3 = locationNodes[k];
+            if (!isLeyLine(p1, p2, p3, 0.5)) continue;
+            const ids = [p1.id, p2.id, p3.id].sort();
+            const key = ids.join("|");
+            if (seenTriangles.has(key)) continue;
+            seenTriangles.add(key);
+            connections.push({
+              from: ids[0], to: ids[1],
+              participants: ids,
+              strength: STRENGTH.LEY_LINE_TRIANGLE, kind: "ley-line-triangle",
+              a: { nodeName: p1.name }, b: { nodeName: p2.name },
+              c: { nodeName: p3.name },
+              triangle: [p1.name, p2.name, p3.name],
             });
           }
+        }
+      }
+    }
+
+    // Antipodal, time-zone, and same-country are pairwise. Layers stack —
+    // a pair antipodal AND in the same time zone produces two findings.
+    for (let i = 0; i < locationNodes.length; i++) {
+      for (let j = i + 1; j < locationNodes.length; j++) {
+        const a = locationNodes[i], b = locationNodes[j];
+        if (isAntipodal(a, b)) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.GEO_ANTIPODAL, kind: "antipodal-match",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+          });
+        }
+        const tzA = longitudeTimeZone(a.lng), tzB = longitudeTimeZone(b.lng);
+        // Require a meaningful spatial separation — same-time-zone for
+        // adjacent cities is uninteresting. ~500 km floor matches the
+        // antipodal tolerance and skips trivial neighbors.
+        if (tzA === tzB && haversineKm(a.lat, a.lng, b.lat, b.lng) > 500) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.GEO_TIMEZONE, kind: "time-zone-match",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+            offset: tzA,
+          });
+        }
+        if (a.country && b.country && a.country === b.country) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.GEO_SAME_COUNTRY, kind: "same-country",
+            a: { nodeName: a.name }, b: { nodeName: b.name },
+            country: a.country,
+          });
+        }
+      }
+    }
+  }
+
+  if (geographicDepth >= 3) {
+    // Loosened-tolerance ley-line triangles. Skip any triangle already emitted
+    // at the 0.5° tolerance in the depth-2 block — only surface the wider net.
+    if (locationNodes.length >= 3) {
+      const alreadyEmitted = new Set(
+        connections
+          .filter((c) => c.kind === "ley-line-triangle")
+          .map((c) => (c.participants || []).slice().sort().join("|"))
+      );
+      for (let i = 0; i < locationNodes.length; i++) {
+        for (let j = i + 1; j < locationNodes.length; j++) {
+          for (let k = j + 1; k < locationNodes.length; k++) {
+            const p1 = locationNodes[i], p2 = locationNodes[j], p3 = locationNodes[k];
+            if (!isLeyLine(p1, p2, p3, 1.5)) continue;
+            const ids = [p1.id, p2.id, p3.id].sort();
+            const key = ids.join("|");
+            if (alreadyEmitted.has(key)) continue;
+            alreadyEmitted.add(key);
+            connections.push({
+              from: ids[0], to: ids[1],
+              participants: ids,
+              strength: STRENGTH.LEY_LINE_TRIANGLE, kind: "ley-line-triangle",
+              a: { nodeName: p1.name }, b: { nodeName: p2.name },
+              c: { nodeName: p3.name },
+              triangle: [p1.name, p2.name, p3.name],
+              tolerance: "loose",
+            });
+          }
+        }
+      }
+    }
+
+    // Great-circle waypoint: a triangle where one location lies (within
+    // 100 km) on the great-circle arc through the other two. Three-party
+    // connection — same routing pattern as ley-line-triangle.
+    for (let i = 0; i < locationNodes.length; i++) {
+      for (let j = 0; j < locationNodes.length; j++) {
+        if (j === i) continue;
+        for (let k = j + 1; k < locationNodes.length; k++) {
+          if (k === i) continue;
+          // Treat i as the candidate waypoint between j and k. Symmetry: we
+          // only need one ordering per triple, so require i < min(j,k) so
+          // each waypoint role gets evaluated once per triple.
+          if (!(i < j)) continue;
+          const p = locationNodes[i], a = locationNodes[j], b = locationNodes[k];
+          if (!isOnGreatCircle(p, a, b, 100)) continue;
+          const ids = [p.id, a.id, b.id].sort();
+          connections.push({
+            from: ids[0], to: ids[1],
+            participants: ids,
+            strength: STRENGTH.GEO_GREAT_CIRCLE, kind: "great-circle-waypoint",
+            a: { nodeName: a.name },
+            b: { nodeName: p.name }, // waypoint
+            c: { nodeName: b.name },
+          });
+        }
+      }
+    }
+
+    // Magnetic-pole proximity: pairs where both locations are near the same
+    // magnetic pole. Pairwise.
+    for (let i = 0; i < locationNodes.length; i++) {
+      for (let j = i + 1; j < locationNodes.length; j++) {
+        const a = locationNodes[i], b = locationNodes[j];
+        for (const which of ["north", "south"]) {
+          if (isNearMagneticPole(a.lat, a.lng, which) && isNearMagneticPole(b.lat, b.lng, which)) {
+            const pole = which === "north" ? MAGNETIC_NORTH_2025 : MAGNETIC_SOUTH_2025;
+            connections.push({
+              from: a.id, to: b.id,
+              strength: STRENGTH.GEO_MAGNETIC_POLE, kind: "magnetic-pole",
+              a: { nodeName: a.name }, b: { nodeName: b.name },
+              pole: which,
+              poleLat: pole.lat, poleLng: pole.lng,
+            });
+          }
+        }
+      }
+    }
+
+    // Elevation band: pairwise on locations carrying an "elevation (m)" fact.
+    // Sea-level matches don't fire — elevationBand returns null for <500m.
+    for (let i = 0; i < locationNodes.length; i++) {
+      for (let j = i + 1; j < locationNodes.length; j++) {
+        const a = locationNodes[i], b = locationNodes[j];
+        const ea = a.numbers?.["elevation (m)"];
+        const eb = b.numbers?.["elevation (m)"];
+        const ba = elevationBand(ea), bb = elevationBand(eb);
+        if (ba && bb && ba === bb) {
+          connections.push({
+            from: a.id, to: b.id,
+            strength: STRENGTH.GEO_ELEVATION_BAND, kind: "elevation-band",
+            a: { nodeName: a.name, elevation: ea },
+            b: { nodeName: b.name, elevation: eb },
+            band: ba,
+          });
         }
       }
     }
@@ -635,7 +816,13 @@ export const sortConnectionsByStrength = (connections) =>
 export const filterByStrengthFloor = (connections, floor) =>
   connections.filter((c) => c.strength >= floor);
 
-// Connections incident to a given node. Operates on from/to only — kind-
-// agnostic, so it works with any future connection category.
+// Connections incident to a given node. Most connections are pairwise
+// (from/to); a few are three-party (ley-line-triangle, great-circle-waypoint)
+// and carry a `participants` array listing all involved node ids. Routing
+// must check both forms so the third party still surfaces the finding when
+// selected.
 export const connectionsForNode = (connections, nodeId) =>
-  connections.filter((c) => c.from === nodeId || c.to === nodeId);
+  connections.filter((c) =>
+    c.from === nodeId || c.to === nodeId ||
+    (Array.isArray(c.participants) && c.participants.includes(nodeId))
+  );

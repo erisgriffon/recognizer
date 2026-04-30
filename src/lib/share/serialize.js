@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS = {
   numerologyDepth: 1,
   lexicalDepth: 1,
   astrologyDepth: 1,
-  enableLeyLines: true,
+  geographicDepth: 1,
   devMode: false,
 };
 
