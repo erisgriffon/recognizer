@@ -59,10 +59,11 @@ export const reverseGeocode = async (lat, lng) => {
 };
 
 export const locationFacts = (loc) => ({
-  "latitude (whole)": Math.round(loc.lat),
-  "longitude (whole)": Math.round(loc.lng),
-  "abs latitude": Math.round(Math.abs(loc.lat)),
-  "abs longitude": Math.round(Math.abs(loc.lng)),
+  // Signed lat/lng pairs collide with each other across hemispheres in ways
+  // that read as accidents, not coincidences. Absolute values are the more
+  // interesting matchable signal.
+  "latitude": Math.round(Math.abs(loc.lat)),
+  "longitude": Math.round(Math.abs(loc.lng)),
   "lat+lng (whole)": Math.round(loc.lat + loc.lng),
   "deg from equator": Math.round(Math.abs(loc.lat)),
 });
