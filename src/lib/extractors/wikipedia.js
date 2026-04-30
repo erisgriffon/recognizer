@@ -47,28 +47,13 @@ export const extractFactsFromExtract = (extract) => {
     if (Number.isFinite(n)) facts["area"] = n;
   }
 
-  // Bare-year extraction from prose. This is now the primary year-fact source
-  // for the extract path (Wikidata adds structured birth/death/founding on top).
-  // Cap raised to 15 since Wikipedia summaries are denser with years than
-  // I'd assumed and we need every fact we can get.
-  const years = extract.match(/\b(1[89]\d{2}|20\d{2})\b/g);
-  if (years) {
-    const uniqueYears = [...new Set(years.map((y) => parseInt(y, 10)))];
-    uniqueYears.slice(0, 15).forEach((y) => {
-      if (!Object.values(facts).includes(y)) facts[`year mentioned (${y})`] = y;
-    });
-  }
-
-  // Other large numbers from prose (populations, distances, counts)
-  const bigNumbers = extract.match(/\b(\d{3,6})\b/g);
-  if (bigNumbers) {
-    const filtered = [...new Set(bigNumbers.map((n) => parseInt(n, 10)))]
-      .filter((n) => n >= 100 && n <= 999999)
-      .filter((n) => !(n >= 1700 && n <= 2100));
-    filtered.slice(0, 4).forEach((n) => {
-      if (!Object.values(facts).includes(n)) facts[`number mentioned (${n})`] = n;
-    });
-  }
+  // Bare-year and bare-number prose scraping was removed: now that Wikidata
+  // provides structured facts with meaningful labels (birth year, founded year,
+  // population, height, etc.), unattributed prose-scraped numbers like
+  // "year mentioned (1865)" or "number mentioned (1200)" were noise more than
+  // signal — they collide constantly without telling the user *what* the
+  // number represents. The diagnoseExtract dev-mode report still shows what
+  // these regexes WOULD match, for debugging.
 
   const numWords = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
   Object.entries(numWords).forEach(([word, n]) => {

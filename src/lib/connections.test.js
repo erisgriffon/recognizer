@@ -44,8 +44,8 @@ describe("findConnections — numeric matching kinds", () => {
     // Adjacent years are common in Wikipedia summaries — they should match
     // (so the user sees the proximity) but at reduced strength.
     const nodes = [
-      node("a", "name", "Alpha", { numbers: { "year mentioned (1809)": 1809 } }),
-      node("b", "name", "Beta", { numbers: { "year mentioned (1810)": 1810 } }),
+      node("a", "name", "Alpha", { numbers: { "birth year": 1809 } }),
+      node("b", "name", "Beta", { numbers: { "founded year": 1810 } }),
     ];
     const near = findConnections(nodes).find((c) => c.kind === "near");
     expect(near).toBeTruthy();
@@ -55,7 +55,7 @@ describe("findConnections — numeric matching kinds", () => {
   it("kind=multiple: 2x year multiples match at strength 0.4", () => {
     const nodes = [
       node("a", "name", "Alpha", { numbers: { "founded year": 1000 } }),
-      node("b", "name", "Beta", { numbers: { "year mentioned (2000)": 2000 } }),
+      node("b", "name", "Beta", { numbers: { "birth year": 2000 } }),
     ];
     const mult = findConnections(nodes).find((c) => c.kind === "multiple");
     expect(mult).toBeTruthy();
@@ -67,7 +67,7 @@ describe("findConnections — numeric matching kinds", () => {
     // ≤ 12). For year facts the rule is strict: only 2x and 3x.
     const nodes = [
       node("a", "name", "Alpha", { numbers: { "founded year": 500 } }),
-      node("b", "name", "Beta", { numbers: { "year mentioned (2000)": 2000 } }),
+      node("b", "name", "Beta", { numbers: { "birth year": 2000 } }),
     ];
     expect(findKinds(nodes)).not.toContain("multiple");
   });
