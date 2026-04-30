@@ -2,6 +2,7 @@ import { haversineKm, isLeyLine } from "./geo.js";
 import { anagramSignature, multisetEditDistance } from "./numerology.js";
 import { ZODIAC_ELEMENTS, zodiacCompatible } from "./dates.js";
 import { colorDistance } from "./extractors/image.js";
+import { STRENGTH, TIERS, NUMERIC_THRESHOLDS } from "./connections.config.js";
 
 // Settings object lets us toggle "soft" categories without re-running expensive
 // computation — categories are filtered after detection.
@@ -37,26 +38,32 @@ export const findConnections = (nodes, settings = {}) => {
       const a = numericFacts[i], b = numericFacts[j];
       if (a.nodeId === b.nodeId) continue;
       const yearLike = isYearFact(a) || isYearFact(b);
-      if (a.value === b.value && a.value > 9) {
-        connections.push({ from: a.nodeId, to: b.nodeId, strength: 1.0, kind: "exact", a, b });
-      } else if (a.value > 20 && b.value > 20 && Math.abs(a.value - b.value) <= 2) {
+      if (a.value === b.value && a.value > NUMERIC_THRESHOLDS.EXACT_MIN) {
+        connections.push({ from: a.nodeId, to: b.nodeId, strength: STRENGTH.EXACT, kind: "exact", a, b });
+      } else if (
+        a.value > NUMERIC_THRESHOLDS.NEAR_MIN &&
+        b.value > NUMERIC_THRESHOLDS.NEAR_MIN &&
+        Math.abs(a.value - b.value) <= NUMERIC_THRESHOLDS.NEAR_DELTA
+      ) {
         // Years still match, but at reduced strength — historical adjacency
         // is interesting but less surprising than coincidence between unrelated facts.
-        const strength = yearLike ? 0.45 : 0.6;
+        const strength = yearLike ? STRENGTH.NEAR_YEAR : STRENGTH.NEAR;
         connections.push({ from: a.nodeId, to: b.nodeId, strength, kind: "near", a, b });
       } else if (
-        a.value > 10 && b.value > 10 && a.value !== b.value &&
+        a.value > NUMERIC_THRESHOLDS.MULTIPLE_MIN_BOTH &&
+        b.value > NUMERIC_THRESHOLDS.MULTIPLE_MIN_BOTH &&
+        a.value !== b.value &&
         (a.value % b.value === 0 || b.value % a.value === 0)
       ) {
         const big = Math.max(a.value, b.value), small = Math.min(a.value, b.value);
         const multiplier = big / small;
         // For year-related multiples, only allow the cleanest cases: exactly
         // 2× or 3×. For other facts, any multiplier up to 12× passes.
-        const maxMult = yearLike ? 3 : 12;
-        if (multiplier > maxMult || small < 5) continue;
+        const maxMult = yearLike ? NUMERIC_THRESHOLDS.MULTIPLE_MAX_YEAR : NUMERIC_THRESHOLDS.MULTIPLE_MAX;
+        if (multiplier > maxMult || small < NUMERIC_THRESHOLDS.MULTIPLE_MIN_SMALL) continue;
         if (yearLike && multiplier !== 2 && multiplier !== 3) continue;
         connections.push({
-          from: a.nodeId, to: b.nodeId, strength: 0.4, kind: "multiple",
+          from: a.nodeId, to: b.nodeId, strength: STRENGTH.MULTIPLE, kind: "multiple",
           a, b, multiplier,
         });
       }
@@ -73,7 +80,7 @@ export const findConnections = (nodes, settings = {}) => {
         const a = numerologyFacts[i], b = numerologyFacts[j];
         if (a.reduced === b.reduced) {
           connections.push({
-            from: a.nodeId, to: b.nodeId, strength: 0.85, kind: "numerology",
+            from: a.nodeId, to: b.nodeId, strength: STRENGTH.NUMEROLOGY, kind: "numerology",
             a: { ...a, label: "numerological value" },
             b: { ...b, label: "numerological value" },
             value: a.reduced,
@@ -93,14 +100,14 @@ export const findConnections = (nodes, settings = {}) => {
         if (sigA.length < 4 || sigB.length < 4) continue;
         if (sigA === sigB) {
           connections.push({
-            from: a.id, to: b.id, strength: 0.95, kind: "anagram",
+            from: a.id, to: b.id, strength: STRENGTH.ANAGRAM, kind: "anagram",
             a: { nodeName: a.name }, b: { nodeName: b.name },
           });
         } else if (Math.abs(sigA.length - sigB.length) <= 2) {
           const dist = multisetEditDistance(sigA, sigB);
           if (dist <= 2 && Math.min(sigA.length, sigB.length) >= 5) {
             connections.push({
-              from: a.id, to: b.id, strength: 0.5, kind: "near-anagram",
+              from: a.id, to: b.id, strength: STRENGTH.NEAR_ANAGRAM, kind: "near-anagram",
               a: { nodeName: a.name }, b: { nodeName: b.name },
               distance: dist,
             });
@@ -118,7 +125,7 @@ export const findConnections = (nodes, settings = {}) => {
       const overlap = a.tokens.filter((t) => b.tokens.includes(t) && t.length > 4);
       if (overlap.length > 0) {
         connections.push({
-          from: a.id, to: b.id, strength: 0.5, kind: "word-overlap",
+          from: a.id, to: b.id, strength: STRENGTH.WORD_OVERLAP, kind: "word-overlap",
           a: { nodeName: a.name }, b: { nodeName: b.name },
           words: overlap.slice(0, 3),
         });
@@ -140,7 +147,7 @@ export const findConnections = (nodes, settings = {}) => {
       const sim = dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1);
       if (sim > 0.985) { // threshold: very similar letter distributions
         connections.push({
-          from: a.id, to: b.id, strength: 0.55, kind: "stylometric",
+          from: a.id, to: b.id, strength: STRENGTH.STYLOMETRIC, kind: "stylometric",
           a: { nodeName: a.name }, b: { nodeName: b.name },
           similarity: sim,
         });
@@ -157,7 +164,7 @@ export const findConnections = (nodes, settings = {}) => {
       Object.entries(other.numbers || {}).forEach(([label, value]) => {
         if (value === wc && /year|founded|birth|death/i.test(label)) {
           connections.push({
-            from: textNode.id, to: other.id, strength: 0.95, kind: "wordcount-year",
+            from: textNode.id, to: other.id, strength: STRENGTH.WORDCOUNT_YEAR, kind: "wordcount-year",
             a: { nodeName: textNode.name, value: wc },
             b: { nodeName: other.name, label, value },
           });
@@ -179,7 +186,7 @@ export const findConnections = (nodes, settings = {}) => {
       for (let i = 0; i < group.length; i++) {
         for (let j = i + 1; j < group.length; j++) {
           connections.push({
-            from: group[i].id, to: group[j].id, strength: 0.7, kind: "weekday-cluster",
+            from: group[i].id, to: group[j].id, strength: STRENGTH.WEEKDAY_CLUSTER, kind: "weekday-cluster",
             a: { nodeName: group[i].name }, b: { nodeName: group[j].name },
             dayOfWeek: dow, count: group.length,
           });
@@ -196,7 +203,7 @@ export const findConnections = (nodes, settings = {}) => {
         const a = zodiacNodes[i], b = zodiacNodes[j];
         if (zodiacCompatible(a.zodiac, b.zodiac)) {
           connections.push({
-            from: a.id, to: b.id, strength: 0.45, kind: "astrology",
+            from: a.id, to: b.id, strength: STRENGTH.ASTROLOGY, kind: "astrology",
             a: { nodeName: a.name, zodiac: a.zodiac },
             b: { nodeName: b.name, zodiac: b.zodiac },
             element: ZODIAC_ELEMENTS[a.zodiac],
@@ -215,7 +222,7 @@ export const findConnections = (nodes, settings = {}) => {
       if (other.type === "text" && other.rawText) {
         if (other.rawText.toLowerCase().includes(firstName)) {
           connections.push({
-            from: nameNode.id, to: other.id, strength: 0.9, kind: "name-mention",
+            from: nameNode.id, to: other.id, strength: STRENGTH.NAME_MENTION, kind: "name-mention",
             a: { nodeName: nameNode.name }, b: { nodeName: other.name },
             mention: firstName,
           });
@@ -223,7 +230,7 @@ export const findConnections = (nodes, settings = {}) => {
       }
       if (other.type === "audio" && (other.rawFilename || "").toLowerCase().includes(firstName)) {
         connections.push({
-          from: nameNode.id, to: other.id, strength: 0.9, kind: "name-in-filename",
+          from: nameNode.id, to: other.id, strength: STRENGTH.NAME_IN_FILENAME, kind: "name-in-filename",
           a: { nodeName: nameNode.name }, b: { nodeName: other.name },
           mention: firstName,
         });
@@ -234,7 +241,7 @@ export const findConnections = (nodes, settings = {}) => {
           const inPages = ev.names.some((p) => p.toLowerCase() === nameNode.name.toLowerCase());
           if (inText || inPages) {
             connections.push({
-              from: nameNode.id, to: other.id, strength: 0.95, kind: "today-mention",
+              from: nameNode.id, to: other.id, strength: STRENGTH.TODAY_MENTION, kind: "today-mention",
               a: { nodeName: nameNode.name }, b: { nodeName: other.name },
               event: ev,
             });
@@ -258,7 +265,7 @@ export const findConnections = (nodes, settings = {}) => {
       }
       if (bestDist < 30) { // very close colors
         connections.push({
-          from: a.id, to: b.id, strength: 0.7, kind: "color-match",
+          from: a.id, to: b.id, strength: STRENGTH.COLOR_MATCH, kind: "color-match",
           a: { nodeName: a.name, hex: bestPair.ca.hex },
           b: { nodeName: b.name, hex: bestPair.cb.hex },
           distance: Math.round(bestDist),
@@ -278,14 +285,14 @@ export const findConnections = (nodes, settings = {}) => {
         if (f.nodeId === a.id || f.nodeId === b.id) return;
         if (f.value === km && km > 1) {
           connections.push({
-            from: a.id, to: f.nodeId, strength: 0.95, kind: "distance-match",
+            from: a.id, to: f.nodeId, strength: STRENGTH.DISTANCE_MATCH, kind: "distance-match",
             a: { nodeName: a.name, label: `distance to ${b.name} (km)`, value: km },
             b: f, otherLocation: b.name,
           });
         }
       });
       connections.push({
-        from: a.id, to: b.id, strength: 0.7, kind: "distance",
+        from: a.id, to: b.id, strength: STRENGTH.DISTANCE, kind: "distance",
         a: { nodeName: a.name }, b: { nodeName: b.name },
         km,
       });
@@ -302,7 +309,7 @@ export const findConnections = (nodes, settings = {}) => {
             // Add as a triangle of connections
             [[p1, p2], [p2, p3], [p1, p3]].forEach(([x, y]) => {
               connections.push({
-                from: x.id, to: y.id, strength: 0.8, kind: "ley-line",
+                from: x.id, to: y.id, strength: STRENGTH.LEY_LINE, kind: "ley-line",
                 a: { nodeName: x.name }, b: { nodeName: y.name },
                 triangle: [p1.name, p2.name, p3.name],
               });
@@ -327,8 +334,6 @@ export const findConnections = (nodes, settings = {}) => {
 // Strength describes the match itself (how rare / specific), NOT our certainty
 // that the match means something — which we explicitly never claim.
 export const strengthTier = (s) => {
-  if (s >= 0.9) return "SUSPICIOUS";
-  if (s >= 0.7) return "STRIKING";
-  if (s >= 0.5) return "NOTABLE";
-  return "TRIVIAL";
+  for (const t of TIERS) if (s >= t.min) return t.name;
+  return TIERS[TIERS.length - 1].name;
 };

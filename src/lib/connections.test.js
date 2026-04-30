@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { findConnections, strengthTier } from "./connections.js";
+import { STRENGTH, TIERS } from "./connections.config.js";
 
 // Tiny node factory — only the fields the engine actually reads.
 const node = (id, type, name, extras = {}) => ({
@@ -164,5 +165,29 @@ describe("strengthTier — named tiers replace 'CONFIDENCE %'", () => {
     expect(strengthTier(0.5)).toBe("NOTABLE");
     expect(strengthTier(0.49)).toBe("TRIVIAL");
     expect(strengthTier(0)).toBe("TRIVIAL");
+  });
+});
+
+describe("connections.config — STRENGTH has every key the engine references", () => {
+  // Catches typos when someone adds a new connection kind with a constant
+  // that doesn't exist on the STRENGTH map (would silently produce strength=undefined).
+  const requiredKeys = [
+    "EXACT", "NEAR", "NEAR_YEAR", "MULTIPLE",
+    "NUMEROLOGY", "NUMEROLOGY_CHALDEAN", "NUMEROLOGY_DOUBLE", "NUMEROLOGY_DEEP",
+    "ANAGRAM", "NEAR_ANAGRAM", "WORD_OVERLAP", "STYLOMETRIC", "WORDCOUNT_YEAR",
+    "WEEKDAY_CLUSTER", "ASTROLOGY", "NAME_MENTION", "NAME_IN_FILENAME", "TODAY_MENTION",
+    "COLOR_MATCH", "DISTANCE", "DISTANCE_MATCH", "LEY_LINE",
+  ];
+  it.each(requiredKeys)("STRENGTH.%s is a finite number in [0,1]", (key) => {
+    const v = STRENGTH[key];
+    expect(typeof v).toBe("number");
+    expect(Number.isFinite(v)).toBe(true);
+    expect(v).toBeGreaterThanOrEqual(0);
+    expect(v).toBeLessThanOrEqual(1);
+  });
+  it("TIERS is ordered from highest min to lowest", () => {
+    for (let i = 1; i < TIERS.length; i++) {
+      expect(TIERS[i - 1].min).toBeGreaterThanOrEqual(TIERS[i].min);
+    }
   });
 });
