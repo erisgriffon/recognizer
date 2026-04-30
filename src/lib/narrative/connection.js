@@ -78,6 +78,38 @@ export const rephrasers = {
   "wordcount-year": (c) => `the word count of ${c.a.nodeName} (${c.a.value}) is precisely equal to the ${c.b.label} of ${c.b.nodeName}. The investigator notes that documents of arbitrary length do not, as a rule, terminate on dates of historical significance`,
   "weekday-cluster": (c) => `${c.count} dates of record fall on a ${c.dayOfWeek}. The recurrence of ${c.dayOfWeek} across unrelated entries is, statistically, improbable`,
   astrology: (c) => `${c.a.nodeName} (${c.a.zodiac}) and ${c.b.nodeName} (${c.b.zodiac}) share the elemental affinity of ${c.element}. The ancients held such pairings to be no accident`,
+  "astrology-modality": (c) => {
+    const seed = (c.a.zodiac.length + c.b.zodiac.length) * (c.modality.length + 1);
+    return pick([
+      `${c.a.nodeName} (${c.a.zodiac}, ${c.modality}) and ${c.b.nodeName} (${c.b.zodiac}, ${c.modality}) share the ${c.modality} modality — a quality the ancients believed governed temperament and disposition`,
+      `the ${c.modality} modality unites ${c.a.zodiac} and ${c.b.zodiac}, and therefore unites ${c.a.nodeName} and ${c.b.nodeName}. The reader will note that ${c.modality} signs are traditionally associated with shared psychological tendencies`,
+    ], seed);
+  },
+  "astrology-ruler": (c) => {
+    const seed = (c.a.zodiac.length + c.b.zodiac.length) * (c.planet.length + 3);
+    return pick([
+      `both ${c.a.zodiac} and ${c.b.zodiac} fall under the rulership of ${c.planet}. ${c.a.nodeName} and ${c.b.nodeName} are therefore, in the traditional reckoning, governed by the same celestial body`,
+      `${c.planet} rules both ${c.a.zodiac} (in ${c.a.nodeName}) and ${c.b.zodiac} (in ${c.b.nodeName}) — a planetary correspondence the investigator finds striking`,
+    ], seed);
+  },
+  "astrology-aspect": (c) => {
+    const angleDescriptions = {
+      conjunction: "occupying the same sign, the most intimate of astrological relationships",
+      sextile: "separated by sixty degrees, a harmonious sextile",
+      square: "in square — ninety degrees apart, a tension the ancients regarded with caution",
+      trine: "in trine — one hundred and twenty degrees apart, the most auspicious of aspects",
+      opposition: "in direct opposition — one hundred and eighty degrees apart, a polarity the ancients considered the most fated",
+    };
+    const desc = angleDescriptions[c.aspect.name] || `in ${c.aspect.label}`;
+    return `${c.a.nodeName} (${c.a.zodiac}) and ${c.b.nodeName} (${c.b.zodiac}) stand ${desc}. The investigator does not endorse traditional astrological interpretation, but acknowledges the geometric relationship`;
+  },
+  "astrology-retrograde": (c) => {
+    const seed = (c.a.isoDate?.length || 0) + (c.b.isoDate?.length || 0) + 13;
+    return pick([
+      `${c.a.nodeName} and ${c.b.nodeName} both fall within periods of Mercury retrograde — traditionally regarded as the most inauspicious astronomical condition for communication, contracts, and travel. That two of the user's submitted dates align with such periods is, the investigator notes, statistically unsurprising but rhetorically convenient`,
+      `Mercury was in retrograde during both ${c.a.nodeName} (${c.a.retrogradeRange}) and ${c.b.nodeName} (${c.b.retrogradeRange}). Make of this what you will`,
+    ], seed);
+  },
   "name-mention": (c) => `the text fragment ${c.b.nodeName} contains explicit reference to "${c.mention}" — the same name attached to subject ${c.a.nodeName}`,
   "name-in-filename": (c) => `the audio exhibit's filename contains the string "${c.mention}", a name otherwise associated with subject ${c.a.nodeName}`,
   "today-mention": (c) => {
