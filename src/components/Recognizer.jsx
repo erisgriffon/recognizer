@@ -16,6 +16,8 @@ import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
 import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
 
+import { buildPlaceholderMediaNode, isValidCaseFile } from "../lib/share/deserialize.js";
+
 import { findConnections, strengthTier, sortConnectionsByStrength, filterByStrengthFloor, connectionsForNode } from "../lib/connections.js";
 import { TIERS } from "../lib/connections.config.js";
 import { narrateConnection } from "../lib/narrative/connection.js";
@@ -400,8 +402,8 @@ export default function Recognizer() {
     setLoading(null);
   };
 
-  const addUrlNode = async () => {
-    const url = urlInput.trim();
+  const addUrlNode = async (presetUrl = null) => {
+    const url = (presetUrl || urlInput).trim();
     if (!url) return;
     if (url.length > LIMITS.URL_MAX_CHARS) {
       setWarning("URL too long.");
@@ -439,7 +441,7 @@ export default function Recognizer() {
     }
 
     setNodes((n) => [...n, baseNode]);
-    setUrlInput("");
+    if (!presetUrl) setUrlInput("");
   };
 
   const addBookNode = async (presetTitle = null) => {
@@ -508,6 +510,63 @@ export default function Recognizer() {
     await addLocationFromSearch(randomItem(RANDOM_POOLS.locations));
     await addLocationFromSearch(randomItem(RANDOM_POOLS.locations));
     await addBookNode(randomItem(RANDOM_POOLS.books));
+    setLoading(null);
+  };
+
+  // Reconstruct a case file from a seed by replaying the same node-creation
+  // flows the user would have triggered manually. Re-uses the existing
+  // adders so imported nodes are byte-for-byte identical to fresh ones.
+  // Media (image/audio) gets a degraded placeholder — bytes don't fit in
+  // a URL. Failures along the way don't roll back: a partial import is
+  // strictly better than no import.
+  const importCaseFile = async (caseFile) => {
+    if (!isValidCaseFile(caseFile)) return;
+    setNodes([]);
+    setSelectedNodeId(null);
+    if (caseFile.s) {
+      setSettings((prev) => ({ ...prev, ...caseFile.s }));
+    }
+    setLoading("Reconstructing case file…");
+    for (const seed of caseFile.n) {
+      try {
+        switch (seed.t) {
+          case "name":
+            await addNameNode(seed.v);
+            break;
+          case "text":
+            addTextNode(seed.v);
+            break;
+          case "date":
+            addDateNode({ iso: seed.v, label: seed.l || "date" });
+            break;
+          case "location":
+            await addLocationFromSearch(seed.v);
+            break;
+          case "url":
+            await addUrlNode(seed.v);
+            break;
+          case "book":
+            await addBookNode(seed.v);
+            break;
+          case "today":
+            // The recipient gets their own "today" — what the sender
+            // observed isn't transmitted. This is intentional: today
+            // shows the recipient's day, preserving the magic moment.
+            promoteToday();
+            break;
+          case "image":
+          case "audio": {
+            const node = buildPlaceholderMediaNode(seed.t, seed.v || {});
+            setNodes((n) => [...n, node]);
+            break;
+          }
+          default:
+            break;
+        }
+      } catch (e) {
+        // Swallow per-seed failures; the surrounding loop keeps going.
+      }
+    }
     setLoading(null);
   };
 
@@ -616,7 +675,7 @@ export default function Recognizer() {
               placeholder="https://example.com/article"
               onKeyDown={(e) => e.key === "Enter" && addUrlNode()}
               style={inputStyle} />
-            <button onClick={addUrlNode} style={buttonStyle}>▸ TRACE URL</button>
+            <button onClick={() => addUrlNode()} style={buttonStyle}>▸ TRACE URL</button>
             <p style={{ fontSize: 10, opacity: 0.5, margin: "6px 0 0" }}>
               Page contents fetched if CORS allows; URL itself analyzed regardless.
             </p>
