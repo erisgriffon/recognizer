@@ -25,6 +25,7 @@ import { findConnections, strengthTier, sortConnectionsByStrength, filterByStren
 import { TIERS } from "../lib/connections.config.js";
 import { narrateConnection } from "../lib/narrative/connection.js";
 import { generateDossier } from "../lib/narrative/dossier.js";
+import { INVESTIGATOR_PRESETS, PRESET_ORDER, detectPreset } from "../lib/presets.js";
 
 import PanelGroup from "./PanelGroup.jsx";
 import ConnectionMap from "./ConnectionMap.jsx";
@@ -791,6 +792,44 @@ export default function Recognizer() {
             <p style={{ fontSize: 11, opacity: 0.7, margin: "0 0 10px" }}>
               Disable categories the investigator considers unscientific. (Or, alternatively, lean into them.)
             </p>
+            {(() => {
+              const preset = detectPreset(settings);
+              const description = preset === "custom"
+                ? "Custom configuration — individual depths set independently."
+                : INVESTIGATOR_PRESETS[preset].description;
+              return (
+                <>
+                  <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
+                    <span style={{ marginRight: 10, minWidth: 200 }}>Investigator Mode:</span>
+                    <select
+                      value={preset}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next === "custom") return; // no-op — custom isn't a destination
+                        const target = INVESTIGATOR_PRESETS[next].depths;
+                        setSettings((s) => ({ ...s, ...target }));
+                      }}
+                      style={{
+                        background: "#0f0a06", border: "1px solid #6b4a2a",
+                        color: "#e8dcc4", padding: "4px 8px", fontSize: 12,
+                        fontFamily: "inherit", cursor: "pointer",
+                      }}
+                    >
+                      {PRESET_ORDER.map((key) => (
+                        <option key={key} value={key}>{INVESTIGATOR_PRESETS[key].label}</option>
+                      ))}
+                      {preset === "custom" && (
+                        <option value="custom">Custom</option>
+                      )}
+                    </select>
+                  </label>
+                  <p style={{ fontSize: 11, opacity: 0.7, fontStyle: "italic", margin: "0 0 10px" }}>
+                    {description}
+                  </p>
+                </>
+              );
+            })()}
+            <hr style={{ border: 0, borderTop: "1px dotted #6b4a2a", opacity: 0.4, margin: "10px 0 12px" }} />
             <label style={{ display: "flex", alignItems: "center", marginBottom: 6, fontSize: 13 }}>
               <span style={{ marginRight: 10, minWidth: 200 }}>Numerology depth:</span>
               <select
