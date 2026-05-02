@@ -1,5 +1,56 @@
 import { LIMITS } from "../../data/limits.js";
 
+// Wikipedia disambiguation is hostile to media titles: "It," "The Thing,"
+// "Heat," "The Office" all have famous film/TV interpretations the user
+// almost certainly meant, but the bare summary endpoint will frequently
+// hand back the disambiguation page or a non-media meaning. The fix is to
+// hit the search endpoint first and pick a result whose description
+// indicates film or television. We fall back to the first hit only if
+// nothing in the page descriptions mentions film/TV — better a wrong
+// summary than a hard "not found" for the user.
+const looksLikeMedia = (description) => {
+  const d = (description || "").toLowerCase();
+  return (
+    d.includes("film") ||
+    d.includes("television") ||
+    d.includes("tv series") ||
+    d.includes("tv show") ||
+    d.includes("movie") ||
+    d.includes("miniseries")
+  );
+};
+
+export const lookupMedia = async (query) => {
+  try {
+    const searchRes = await fetch(
+      `https://en.wikipedia.org/w/rest.php/v1/search/title?q=${encodeURIComponent(query)}&limit=5`
+    );
+    if (!searchRes.ok) return null;
+    const searchData = await searchRes.json();
+    const pages = searchData?.pages || [];
+    if (pages.length === 0) return null;
+
+    const mediaResult = pages.find((p) => looksLikeMedia(p.description)) || pages[0];
+
+    const summaryRes = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(mediaResult.key)}`
+    );
+    if (!summaryRes.ok) return null;
+    const summary = await summaryRes.json();
+
+    return {
+      title: summary.title,
+      extract: summary.extract || "",
+      description: summary.description || null,
+      thumbnail: summary.thumbnail?.source || null,
+      wikidataId: summary.wikibase_item || null,
+      queriedAs: query,
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
 export const lookupBook = async (query) => {
   try {
     const res = await fetch(
