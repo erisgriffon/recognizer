@@ -15,7 +15,7 @@ import { fetchWikidataFacts } from "../lib/extractors/wikidata.js";
 import { buildTodayNode } from "../lib/extractors/today.js";
 import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
-import { analyzeUrl, fetchUrlContent, lookupBook } from "../lib/extractors/misc.js";
+import { analyzeUrl, fetchUrlContent, lookupBook, lookupMedia } from "../lib/extractors/misc.js";
 
 import { serializeCaseFile } from "../lib/share/serialize.js";
 import { buildPlaceholderMediaNode, isValidCaseFile } from "../lib/share/deserialize.js";
@@ -51,6 +51,7 @@ export default function Recognizer() {
   const [locationInput, setLocationInput] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [bookInput, setBookInput] = useState("");
+  const [mediaInput, setMediaInput] = useState("");
 
   // Status
   const [loading, setLoading] = useState(null);
@@ -497,6 +498,73 @@ export default function Recognizer() {
     if (!presetTitle) setBookInput("");
   };
 
+  // Mirrors addBookNode (Wikipedia/Wikidata flow rather than Open Library) and
+  // also addNameNode's habit of deriving zodiac/lunar from a day-precision
+  // date — except here that date is the film/TV release rather than a birth.
+  // That symmetry is deliberate: a film's release date should collide with a
+  // user's birthday under the same date-cluster machinery names already use.
+  const addMediaNode = async (presetQuery = null) => {
+    const q = (presetQuery || mediaInput).trim();
+    if (!q) return;
+    setLoading("Cross-referencing media archives…");
+    const media = await lookupMedia(q);
+    if (!media) {
+      setLoading(null);
+      setWarning("No film or TV show found matching that query.");
+      return;
+    }
+
+    let wikidata = null;
+    let dateDerived = {};
+    if (media.wikidataId) {
+      setLoading("Cross-referencing Wikidata…");
+      wikidata = await fetchWikidataFacts(media.wikidataId);
+      if (wikidata) {
+        const release = wikidata.dates["publication date"] || wikidata.dates["start date"];
+        if (release && isInRange(release)) {
+          dateDerived.zodiac = zodiacOf(release);
+          dateDerived.dayOfWeek = dayOfWeek(release);
+          dateDerived.moonPhase = moonPhase(release);
+          dateDerived.releaseDate = release.toISOString().slice(0, 10);
+          dateDerived.releaseDayOfYear = Math.ceil(
+            (release - new Date(release.getFullYear(), 0, 0)) / 86400000
+          );
+        }
+      }
+    }
+    setLoading(null);
+
+    const facts = wikidata?.facts || {};
+    const wasSubstituted = q.toLowerCase().trim() !== media.title.toLowerCase().trim();
+
+    const node = {
+      id: "media-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5),
+      type: "media",
+      // mediaType lets the table view show "FILM" vs "TV" badges. Wikidata's
+      // instanceOf will be "film" or "television series" for the canonical
+      // cases; if a less common subtype (e.g. "miniseries") slips through,
+      // the badge still reads honestly rather than guessing.
+      mediaType: wikidata?.instanceOf || "media",
+      name: media.title,
+      summary: media.extract.slice(0, 220),
+      rawExtract: media.extract,
+      description: media.description,
+      wikidataId: media.wikidataId,
+      instanceOf: wikidata?.instanceOf || null,
+      ...dateDerived,
+      numbers: facts,
+      numerology: {
+        pythagorean: pythagoreanNumerologyOf(media.title),
+        chaldean: chaldeanNumerologyOf(media.title),
+        deepReduced: null,
+      },
+      queriedAs: wasSubstituted ? q : null,
+      thumbnail: media.thumbnail,
+    };
+    setNodes((n) => [...n, node]);
+    if (!presetQuery) setMediaInput("");
+  };
+
   const removeNode = (id) => setNodes((n) => n.filter((x) => x.id !== id));
 
   const clearAll = () => {
@@ -565,6 +633,9 @@ export default function Recognizer() {
             break;
           case "book":
             await addBookNode(seed.v);
+            break;
+          case "media":
+            await addMediaNode(seed.v);
             break;
           case "today":
             // The recipient gets their own "today" — what the sender
@@ -725,6 +796,18 @@ export default function Recognizer() {
               onKeyDown={(e) => e.key === "Enter" && addBookNode()}
               style={inputStyle} />
             <button onClick={() => addBookNode()} style={buttonStyle}>▸ CATALOG BOOK</button>
+          </div>
+          <div style={panelStyle}>
+            <label style={labelStyle}>FILM OR TV SHOW</label>
+            <input type="text" value={mediaInput}
+              onChange={(e) => setMediaInput(e.target.value)}
+              placeholder="e.g. 2001: A Space Odyssey"
+              onKeyDown={(e) => e.key === "Enter" && addMediaNode()}
+              style={inputStyle} />
+            <button onClick={() => addMediaNode()} style={buttonStyle}>▸ LOOK UP</button>
+            <p style={{ fontSize: 10, opacity: 0.5, margin: "6px 0 0" }}>
+              Wikipedia + Wikidata; biased toward film/TV when titles are ambiguous.
+            </p>
           </div>
           <div style={panelStyle}>
             <label style={labelStyle}>URL OF INTEREST</label>
