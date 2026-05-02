@@ -1,20 +1,24 @@
 import { useState, useRef, useEffect } from "react";
+import { computeLayout } from "../lib/layout.js";
 
 export default function ConnectionMap({ nodes, connections, selectedNodeId = null, onNodeClick }) {
   const canvasRef = useRef(null);
   const [positions, setPositions] = useState({});
 
+  // Recompute layout when the id set changes — added/removed nodes only,
+  // not edits to existing nodes' fields. Existing positions warm-start so
+  // the corkboard doesn't reshuffle on every evidence change.
+  const idKey = nodes.map((n) => n.id).join("|");
   useEffect(() => {
-    const w = 800, h = 500;
-    const cx = w / 2, cy = h / 2;
-    const r = Math.min(180, 60 + nodes.length * 18);
-    const pos = {};
-    nodes.forEach((node, i) => {
-      const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
-      pos[node.id] = { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+    setPositions((prev) => {
+      const initial = {};
+      for (const node of nodes) {
+        if (prev[node.id]) initial[node.id] = prev[node.id];
+      }
+      return computeLayout(nodes, connections, { initial });
     });
-    setPositions(pos);
-  }, [nodes.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idKey]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
