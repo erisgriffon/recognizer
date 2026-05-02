@@ -124,6 +124,36 @@ export function createLayoutSimulation(nodes, connections, options = {}) {
   };
 }
 
+// Stable per-edge jitter for the corkboard's curved strings. Same (fromId,
+// toId) always returns the same offset, so paint-to-paint flicker stops and
+// shared URLs render identically. Direction-sensitive: edgeJitter("a","b")
+// differs from edgeJitter("b","a") — the engine is consistent about
+// connection orientation, so we don't need to canonicalize the pair.
+export const edgeJitter = (fromId, toId) => {
+  const h = hashString(fromId + "|" + toId);
+  return {
+    x: ((h & 0xff) / 0xff - 0.5) * 8,
+    y: (((h >>> 8) & 0xff) / 0xff - 0.5) * 8,
+  };
+};
+
+// mulberry32 PRNG. Used by the corkboard's aged-paper texture to draw the
+// same speckle pattern every render of a given case file. Seed comes from
+// the joined node ids in ConnectionMap — different case files get different
+// grain, the same case file is reproducible across reloads.
+export const mulberry32 = (seed) => {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+export const seedFromIds = (ids) => hashString(ids.join("|"));
+
 export function computeLayout(nodes, connections, options = {}) {
   const sim = createLayoutSimulation(nodes, connections, options);
   while (!sim.isSettled()) sim.step();

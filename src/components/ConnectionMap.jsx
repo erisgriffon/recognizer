@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { createLayoutSimulation } from "../lib/layout.js";
+import { createLayoutSimulation, edgeJitter, mulberry32, seedFromIds } from "../lib/layout.js";
 
 export default function ConnectionMap({ nodes, connections, selectedNodeId = null, onNodeClick }) {
   const canvasRef = useRef(null);
@@ -46,9 +46,13 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
     canvas.style.width = "800px"; canvas.style.height = "500px";
     ctx.scale(dpr, dpr);
     ctx.fillStyle = "#f5efe1"; ctx.fillRect(0, 0, 800, 500);
+    // Aged-paper speckle, deterministic per case file. With the rAF loop
+    // running at 60fps, the previous Math.random version shimmered visibly
+    // — this seed makes the texture stable.
+    const rng = mulberry32(seedFromIds(nodes.map((n) => n.id)));
     for (let i = 0; i < 400; i++) {
-      ctx.fillStyle = `rgba(60, 40, 20, ${Math.random() * 0.05})`;
-      ctx.fillRect(Math.random() * 800, Math.random() * 500, 1, 1);
+      ctx.fillStyle = `rgba(60, 40, 20, ${rng() * 0.05})`;
+      ctx.fillRect(rng() * 800, rng() * 500, 1, 1);
     }
     const isIncident = (c) =>
       selectedNodeId && (c.from === selectedNodeId || c.to === selectedNodeId);
@@ -62,8 +66,9 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
       ctx.lineWidth = 0.8 + c.strength * 1.4;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
-      const mx = (a.x + b.x) / 2 + (Math.random() - 0.5) * 8;
-      const my = (a.y + b.y) / 2 + (Math.random() - 0.5) * 8;
+      const j = edgeJitter(c.from, c.to);
+      const mx = (a.x + b.x) / 2 + j.x;
+      const my = (a.y + b.y) / 2 + j.y;
       ctx.quadraticCurveTo(mx, my, b.x, b.y);
       ctx.stroke();
     });

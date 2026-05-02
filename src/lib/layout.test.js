@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeLayout, createLayoutSimulation } from "./layout.js";
+import { computeLayout, createLayoutSimulation, edgeJitter } from "./layout.js";
 
 const round = (positions) => {
   const out = {};
@@ -100,6 +100,18 @@ describe("createLayoutSimulation", () => {
     const settled = JSON.parse(JSON.stringify(sim.getPositions()));
     sim.step(); sim.step();
     expect(sim.getPositions()).toEqual(settled);
+  });
+});
+
+describe("edgeJitter", () => {
+  it("returns the same offset for the same edge endpoints", () => {
+    expect(edgeJitter("a", "b")).toEqual(edgeJitter("a", "b"));
+  });
+
+  it("returns different offsets for swapped endpoints", () => {
+    // Direction-sensitive on purpose — the engine reports each connection
+    // with consistent from/to, so we don't need to canonicalize the pair.
+    expect(edgeJitter("a", "b")).not.toEqual(edgeJitter("b", "a"));
   });
 });
 
