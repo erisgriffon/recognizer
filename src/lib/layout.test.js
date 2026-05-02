@@ -73,6 +73,18 @@ describe("computeLayout", () => {
     const positions = round(computeLayout(nodes, [], { width: 800, height: 500 }));
     expect(positions).toEqual(__SNAPSHOT_8__);
   });
+
+  it("matches the 20-node snapshot (regression guard)", () => {
+    const nodes = Array.from({ length: 20 }, (_, i) => ({ id: `n${i}` }));
+    const positions = round(computeLayout(nodes, [], { width: 800, height: 500 }));
+    expect(positions).toEqual(__SNAPSHOT_20__);
+  });
+
+  it("matches the 50-node snapshot (regression guard)", () => {
+    const nodes = Array.from({ length: 50 }, (_, i) => ({ id: `n${i}` }));
+    const positions = round(computeLayout(nodes, [], { width: 800, height: 500 }));
+    expect(positions).toEqual(__SNAPSHOT_50__);
+  });
 });
 
 describe("createLayoutSimulation", () => {
@@ -115,8 +127,10 @@ describe("edgeJitter", () => {
   });
 });
 
-// Locks current settled output for an 8-node fixture. Updated in phase 5
-// alongside any tuning changes.
+// Snapshots lock the settled layout against accidental drift. Regenerate
+// these whenever you intentionally tune repulsionK / centeringK / iterations
+// / damping in src/lib/layout.js.
+
 const __SNAPSHOT_8__ = {
   "book-walden":      { x: 432, y: 94 },
   "date-1865-04-14":  { x: 299, y: 136 },
@@ -127,3 +141,7 @@ const __SNAPSHOT_8__ = {
   "name-tesla":       { x: 331, y: 308 },
   "today":            { x: 218, y: 263 },
 };
+
+const __SNAPSHOT_20__ = {"n0":{"x":277,"y":167},"n1":{"x":204,"y":444},"n10":{"x":122,"y":300},"n11":{"x":590,"y":49},"n12":{"x":503,"y":176},"n13":{"x":505,"y":314},"n14":{"x":330,"y":465},"n15":{"x":542,"y":462},"n16":{"x":436,"y":457},"n17":{"x":235,"y":274},"n18":{"x":640,"y":165},"n19":{"x":625,"y":277},"n2":{"x":151,"y":139},"n3":{"x":249,"y":35},"n4":{"x":389,"y":168},"n5":{"x":475,"y":35},"n6":{"x":399,"y":289},"n7":{"x":366,"y":35},"n8":{"x":643,"y":393},"n9":{"x":312,"y":354}};
+
+const __SNAPSHOT_50__ = {"n0":{"x":443,"y":114},"n1":{"x":144,"y":365},"n10":{"x":657,"y":465},"n11":{"x":65,"y":465},"n12":{"x":528,"y":35},"n13":{"x":735,"y":115},"n14":{"x":628,"y":257},"n15":{"x":523,"y":314},"n16":{"x":614,"y":370},"n17":{"x":583,"y":465},"n18":{"x":321,"y":385},"n19":{"x":227,"y":35},"n2":{"x":735,"y":35},"n20":{"x":415,"y":364},"n21":{"x":607,"y":132},"n22":{"x":228,"y":188},"n23":{"x":333,"y":207},"n24":{"x":735,"y":465},"n25":{"x":735,"y":392},"n26":{"x":310,"y":35},"n27":{"x":156,"y":127},"n28":{"x":500,"y":392},"n29":{"x":539,"y":232},"n3":{"x":595,"y":35},"n30":{"x":65,"y":35},"n31":{"x":65,"y":285},"n32":{"x":365,"y":465},"n33":{"x":360,"y":125},"n34":{"x":65,"y":113},"n35":{"x":384,"y":35},"n36":{"x":148,"y":35},"n37":{"x":266,"y":106},"n38":{"x":697,"y":180},"n39":{"x":435,"y":465},"n4":{"x":230,"y":372},"n40":{"x":141,"y":465},"n41":{"x":352,"y":295},"n42":{"x":65,"y":197},"n43":{"x":510,"y":465},"n44":{"x":735,"y":248},"n45":{"x":217,"y":465},"n46":{"x":716,"y":322},"n47":{"x":291,"y":465},"n48":{"x":435,"y":240},"n49":{"x":249,"y":280},"n5":{"x":665,"y":35},"n6":{"x":513,"y":152},"n7":{"x":458,"y":35},"n8":{"x":65,"y":377},"n9":{"x":150,"y":251}};
