@@ -584,6 +584,7 @@ export default function Recognizer() {
     for (const text of DEMO_SET.texts) addTextNode(text);
     for (const date of DEMO_SET.dates) addDateNode(date);
     for (const loc of DEMO_SET.locations) await addLocationFromSearch(loc);
+    for (const m of (DEMO_SET.media || [])) await addMediaNode(m);
     setLoading(null);
   };
 
@@ -596,6 +597,7 @@ export default function Recognizer() {
     await addLocationFromSearch(randomItem(RANDOM_POOLS.locations));
     await addLocationFromSearch(randomItem(RANDOM_POOLS.locations));
     await addBookNode(randomItem(RANDOM_POOLS.books));
+    await addMediaNode(randomItem(RANDOM_POOLS.media));
     setLoading(null);
   };
 
