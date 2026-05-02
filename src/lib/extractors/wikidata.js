@@ -15,27 +15,55 @@ export const WIKIDATA_PROPERTIES = {
   P570: { key: "death", isDate: true },
   P571: { key: "inception", isDate: true }, // founding date for orgs/places
   P585: { key: "point in time", isDate: true }, // for events
+  P577: { key: "publication date", isDate: true }, // films and other works
+  P580: { key: "start date", isDate: true }, // TV series start
+  P582: { key: "end date", isDate: true }, // TV series end
   P2048: { key: "height (cm)", isQuantity: true },
   P1971: { key: "number of children", isQuantity: true },
   P1082: { key: "population", isQuantity: true },
   P2046: { key: "area (km²)", isQuantity: true },
   P2044: { key: "elevation (m)", isQuantity: true },
+  P2047: { key: "duration", isQuantity: true }, // film/TV runtime in minutes
+  P2437: { key: "number of seasons", isQuantity: true },
+  P1113: { key: "number of episodes", isQuantity: true },
   P31: { key: "instance of", isEntity: true }, // for type display only
 };
 
 // Common P31 (instance of) values mapped to readable labels. Avoids a second
-// Wikidata round-trip to resolve the type's own entity.
+// Wikidata round-trip to resolve the type's own entity. The film/TV entries
+// also serve as the genre lookup table (P136 takes the same kind of Q-number);
+// any unknown Q-codes fall back to the raw "Q…" string, which is honest about
+// what we have. Both this table and the country list below are data — extend
+// them as new media gets surfaced through real use.
 export const WIKIDATA_TYPES = {
   Q5: "human", Q515: "city", Q3957: "town", Q486972: "human settlement",
   Q6256: "country", Q35657: "U.S. state", Q1549591: "big city",
   Q35666: "year", Q41710: "ethnic group", Q43229: "organization",
-  Q4830453: "business", Q783794: "company", Q11424: "film",
+  Q4830453: "business", Q783794: "company",
   Q571: "book", Q7725634: "literary work", Q482994: "album",
   Q134556: "single", Q207628: "musical composition",
   Q11446: "ship", Q12280: "bridge", Q41176: "building",
   Q23397: "lake", Q4022: "river", Q8502: "mountain",
   Q33506: "museum", Q22698: "park", Q3947: "house",
   Q177: "the Earth", Q34442: "road",
+  // Film / TV — instance-of and genre values share this table.
+  Q11424: "film", Q5398426: "television series",
+  Q15416: "television program", Q1259759: "miniseries",
+  Q24862: "western film", Q188473: "action film",
+  Q319221: "thriller film", Q157394: "fantasy film",
+  Q24925: "horror film", Q130232: "drama film",
+  Q200092: "horror television series", Q1437153: "drama television series",
+  Q15637293: "comedy television series", Q3072039: "documentary film",
+  Q471839: "science fiction film", Q645928: "comedy film",
+  Q1054574: "film series",
+  // Common countries of origin. Already partially covered above (Q30, etc.
+  // would conflict, but the existing table doesn't list any countries).
+  Q30: "United States", Q145: "United Kingdom", Q142: "France",
+  Q183: "Germany", Q17: "Japan", Q16: "Canada", Q38: "Italy",
+  Q29: "Spain", Q20: "Norway", Q34: "Sweden", Q35: "Denmark",
+  Q159: "Russia", Q668: "India", Q865: "Taiwan", Q884: "South Korea",
+  Q408: "Australia", Q664: "New Zealand", Q414: "Argentina",
+  Q155: "Brazil", Q96: "Mexico",
 };
 
 // Parse Wikidata's date format. Looks like "+1809-02-12T00:00:00Z" with a
