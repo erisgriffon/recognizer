@@ -1,22 +1,39 @@
 import { useState, useRef, useEffect } from "react";
-import { computeLayout } from "../lib/layout.js";
+import { createLayoutSimulation } from "../lib/layout.js";
 
 export default function ConnectionMap({ nodes, connections, selectedNodeId = null, onNodeClick }) {
   const canvasRef = useRef(null);
+  const simRef = useRef(null);
+  const positionsRef = useRef({});
   const [positions, setPositions] = useState({});
+  const [isSettling, setIsSettling] = useState(false);
 
-  // Recompute layout when the id set changes — added/removed nodes only,
-  // not edits to existing nodes' fields. Existing positions warm-start so
-  // the corkboard doesn't reshuffle on every evidence change.
+  // Restart the sim whenever the id set changes. Existing positions warm-start
+  // so unchanged nodes stay near where they were; new nodes seed from their id
+  // hash and drift in over the rAF loop below.
   const idKey = nodes.map((n) => n.id).join("|");
   useEffect(() => {
-    setPositions((prev) => {
-      const initial = {};
-      for (const node of nodes) {
-        if (prev[node.id]) initial[node.id] = prev[node.id];
+    const initial = {};
+    for (const node of nodes) {
+      if (positionsRef.current[node.id]) initial[node.id] = positionsRef.current[node.id];
+    }
+    simRef.current = createLayoutSimulation(nodes, connections, { initial });
+    setIsSettling(true);
+
+    let raf;
+    const tick = () => {
+      simRef.current.step();
+      const next = { ...simRef.current.getPositions() };
+      positionsRef.current = next;
+      setPositions(next);
+      if (simRef.current.isSettled()) {
+        setIsSettling(false);
+        return;
       }
-      return computeLayout(nodes, connections, { initial });
-    });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idKey]);
 
@@ -100,6 +117,17 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
   // than over-generous ones.
   const handleClick = (e) => {
     if (!onNodeClick) return;
+    // Click during settle: snap to final and discard this click. The user
+    // hasn't seen the final layout yet, so a click on mid-flight positions
+    // is probably not the click they wanted — re-clicking is honest.
+    if (isSettling && simRef.current) {
+      while (!simRef.current.isSettled()) simRef.current.step();
+      const next = { ...simRef.current.getPositions() };
+      positionsRef.current = next;
+      setPositions(next);
+      setIsSettling(false);
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();

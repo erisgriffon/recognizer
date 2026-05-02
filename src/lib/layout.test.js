@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeLayout } from "./layout.js";
+import { computeLayout, createLayoutSimulation } from "./layout.js";
 
 const round = (positions) => {
   const out = {};
@@ -72,6 +72,34 @@ describe("computeLayout", () => {
     ];
     const positions = round(computeLayout(nodes, [], { width: 800, height: 500 }));
     expect(positions).toEqual(__SNAPSHOT_8__);
+  });
+});
+
+describe("createLayoutSimulation", () => {
+  it("exposes step, getPositions, and isSettled and advances on step()", () => {
+    const sim = createLayoutSimulation([{ id: "a" }, { id: "b" }], [], { iterations: 5 });
+    expect(typeof sim.step).toBe("function");
+    expect(typeof sim.getPositions).toBe("function");
+    expect(typeof sim.isSettled).toBe("function");
+    const before = JSON.stringify(sim.getPositions());
+    sim.step();
+    const after = JSON.stringify(sim.getPositions());
+    expect(after).not.toBe(before);
+  });
+
+  it("isSettled flips to true once the iteration budget is exhausted", () => {
+    const sim = createLayoutSimulation([{ id: "a" }], [], { iterations: 3 });
+    expect(sim.isSettled()).toBe(false);
+    sim.step(); sim.step(); sim.step();
+    expect(sim.isSettled()).toBe(true);
+  });
+
+  it("stepping a settled simulation is a no-op", () => {
+    const sim = createLayoutSimulation([{ id: "a" }, { id: "b" }], [], { iterations: 2 });
+    sim.step(); sim.step();
+    const settled = JSON.parse(JSON.stringify(sim.getPositions()));
+    sim.step(); sim.step();
+    expect(sim.getPositions()).toEqual(settled);
   });
 });
 
