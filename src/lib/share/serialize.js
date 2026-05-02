@@ -47,6 +47,12 @@ export const serializeNode = (node) => {
       // Open Library substitutes fuzzy matches; queriedAs preserves the
       // original search so the recipient sees the same fuzzy resolution.
       return { t: "book", v: node.queriedAs || node.name };
+    case "media":
+      // Same shape as book — store the original query so Wikipedia's
+      // film/TV bias picks the same disambiguation winner on the
+      // recipient's side. If queriedAs is null the title was an exact
+      // match, so the canonical name is fine to send.
+      return { t: "media", v: node.queriedAs || node.name };
     case "today":
       return { t: "today" };
     case "image":

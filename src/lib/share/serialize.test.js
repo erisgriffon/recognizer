@@ -37,6 +37,16 @@ describe("serializeNode — per-type round trips", () => {
       .toEqual({ t: "book", v: "Foucault's Pendulum" });
   });
 
+  it("serializes a media node using queriedAs when Wikipedia substituted a different match", () => {
+    expect(serializeNode({ type: "media", name: "It (2017 film)", queriedAs: "It" }))
+      .toEqual({ t: "media", v: "It" });
+  });
+
+  it("serializes a media node by name when no substitution happened", () => {
+    expect(serializeNode({ type: "media", name: "2001: A Space Odyssey", queriedAs: null }))
+      .toEqual({ t: "media", v: "2001: A Space Odyssey" });
+  });
+
   it("serializes today as a bare marker — recipient rebuilds from their own date", () => {
     expect(serializeNode({ type: "today", name: "today" }))
       .toEqual({ t: "today" });
