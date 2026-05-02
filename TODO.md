@@ -52,7 +52,6 @@ for "imperative library + React closures."
 
 ## Other deferred items
 
-1. favicon and proper meta tags
-2. GitHub repo README
-3. wire up `npm run preview` to test the production build locally before deploying
-4. better sample investigation (tesla doesn't link to any of the other things)
+- better sample investigation (tesla doesn't link to any of the other things)
+- Persistence of settings via localStorage. So the user's preferred numerology depth and corkboard preferences survive a refresh.
+- When getting above 10 or so entries the corkboard nodes start overlapping
