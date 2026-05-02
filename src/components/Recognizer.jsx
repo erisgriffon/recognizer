@@ -1101,6 +1101,7 @@ export default function Recognizer() {
                       </span>
                     )}
                     {node.birthDate && <span style={{ opacity: 0.7, fontSize: 12 }}> — born {node.birthDate}</span>}
+                    {node.releaseDate && <span style={{ opacity: 0.7, fontSize: 12 }}> — released {node.releaseDate}</span>}
                     {node.zodiac && <span style={{ opacity: 0.7, fontSize: 12 }}> — {node.zodiac}, {node.dayOfWeek}, {node.moonPhase}</span>}
                     {node.lat !== undefined && (
                       <span style={{ opacity: 0.7, fontSize: 12 }}> — {node.lat.toFixed(3)}, {node.lng.toFixed(3)}</span>
