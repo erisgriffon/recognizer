@@ -3,6 +3,7 @@ export const DEMO_SET = {
   texts: [`Call me Ishmael. Some years ago — never mind how long precisely — having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world. It is a way I have of driving off the spleen and regulating the circulation. Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; and especially whenever my hypos get such an upper hand of me, that it requires a strong moral principle to prevent me from deliberately stepping into the street, and methodically knocking people's hats off — then, I account it high time to get to sea as soon as I can.`],
   dates: [{ label: "moon landing", iso: "1969-07-20" }],
   locations: ["Smiljan, Croatia", "Wardenclyffe, New York"],
+  media: ["2001: A Space Odyssey"],
 };
 
 export const RANDOM_POOLS = {
@@ -41,6 +42,17 @@ export const RANDOM_POOLS = {
     "Foucault's Pendulum", "Gravity's Rainbow", "House of Leaves",
     "The Crying of Lot 49", "1984", "The Master and Margarita",
     "Cosmos", "The Illuminatus! Trilogy",
+  ],
+  // Lean toward paranoid-thriller titles — fits the investigator's vibe
+  // better than rom-coms. These are the titles ambiguous-disambiguation
+  // bias was built for: each has a famous film/TV interpretation that
+  // Wikipedia would otherwise bury under a pronoun or place name.
+  media: [
+    "Twin Peaks", "The X-Files", "Vertigo", "The Conversation",
+    "All the President's Men", "Three Days of the Condor",
+    "JFK", "The Manchurian Candidate", "The Parallax View",
+    "Network", "Dr. Strangelove", "Blow Out", "Klute",
+    "The Prisoner", "Person of Interest", "Mr. Robot",
   ],
 };
 
