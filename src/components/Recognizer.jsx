@@ -442,8 +442,8 @@ export default function Recognizer() {
       numbers: parsed.numbers,
       // Full URL drives numerology — captures path letters too, not just domain.
       numerology: {
-        pythagorean: pythagoreanNumerologyOf(parsed.url),
-        chaldean: chaldeanNumerologyOf(parsed.url),
+        pythagorean: pythagoreanNumerologyOf(parsed.numerologySource),
+        chaldean: chaldeanNumerologyOf(parsed.numerologySource),
         deepReduced: null,
       },
     };
