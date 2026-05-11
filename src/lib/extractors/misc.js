@@ -97,11 +97,17 @@ export const analyzeUrl = (urlString) => {
     const n = parseInt(digits.slice(0, 7), 10);
     if (Number.isFinite(n) && n > 0) numbers["digits in URL"] = n;
   }
+  // Cleaned form for numerology: drop scheme and leading www. so URL
+  // numerology reflects the user-chosen part of the URL, not protocol
+  // boilerplate that's identical across every URL submitted.
+  const numerologySource = domain.replace(/^www\./, "") + path;
+
   return {
     url: urlString,
     domain,
     path,
     tld: domain.split(".").pop(),
+    numerologySource,
     numbers,
   };
 };

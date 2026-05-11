@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { lookupMedia } from "./misc.js";
+import { lookupMedia, analyzeUrl } from "./misc.js";
 
 // We stub global.fetch and feed it canned Wikipedia responses. The first
 // call goes to /rest.php/v1/search/title (the title-search endpoint), the
@@ -122,5 +122,22 @@ describe("lookupMedia", () => {
     global.fetch = vi.fn(async () => { throw new Error("offline"); });
     const result = await lookupMedia("anything");
     expect(result).toBeNull();
+  });
+});
+
+describe("analyzeUrl", () => {
+  it("returns numerologySource with no scheme", () => {
+    const result = analyzeUrl("https://example.com/foo");
+    expect(result.numerologySource).toBe("example.com/foo");
+  });
+
+  it("returns numerologySource with www. stripped", () => {
+    const result = analyzeUrl("https://www.example.com/foo");
+    expect(result.numerologySource).toBe("example.com/foo");
+  });
+
+  it("preserves other subdomains in numerologySource", () => {
+    const result = analyzeUrl("https://api.example.com/foo");
+    expect(result.numerologySource).toBe("api.example.com/foo");
   });
 });
