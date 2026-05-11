@@ -11,7 +11,7 @@ import { geocode, reverseGeocode, locationFacts } from "../lib/geo.js";
 
 import { findCapitalizedNames, findRepeatedPhrases, wordFrequency, letterFrequency } from "../lib/extractors/text.js";
 import { lookupName, extractFactsFromExtract, diagnoseExtract, fetchOnThisDay } from "../lib/extractors/wikipedia.js";
-import { fetchWikidataFacts } from "../lib/extractors/wikidata.js";
+import { fetchWikidataFacts, lookupWikidataByUrl } from "../lib/extractors/wikidata.js";
 import { buildTodayNode } from "../lib/extractors/today.js";
 import { analyzeAudio } from "../lib/extractors/audio.js";
 import { analyzeImage, extractDominantColors } from "../lib/extractors/image.js";
@@ -433,13 +433,25 @@ export default function Recognizer() {
 
     setLoading("Attempting to fetch URL contents…");
     const text = await fetchUrlContent(url);
+
+    // Wikidata lookup runs regardless of whether the page fetch succeeded.
+    // On a hit, structured facts get merged into the node alongside any
+    // page-derived facts. On a miss, the node is no worse off.
+    setLoading("Cross-referencing Wikidata…");
+    const wikidataId = await lookupWikidataByUrl(url);
+    let wikidata = null;
+    if (wikidataId) {
+      wikidata = await fetchWikidataFacts(wikidataId);
+    }
     setLoading(null);
 
     const baseNode = {
       id: "url-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5),
       type: "url", name: parsed.domain,
       url: parsed.url, domain: parsed.domain, path: parsed.path,
-      numbers: parsed.numbers,
+      numbers: { ...parsed.numbers, ...(wikidata?.facts || {}) },
+      wikidataId: wikidataId || null,
+      instanceOf: wikidata?.instanceOf || null,
       // Full URL drives numerology — captures path letters too, not just domain.
       numerology: {
         pythagorean: pythagoreanNumerologyOf(parsed.numerologySource),
@@ -1353,8 +1365,9 @@ export default function Recognizer() {
             RECOGNIZER v0.13 · ALL CONNECTIONS ARE PURELY COINCIDENTAL · OR ARE THEY
           </p>
           <p style={{ margin: 0, fontStyle: "italic", opacity: 0.85 }}>
-            Your evidence stays in your browser. Names and place searches are sent to{" "}
-            <a href="https://www.wikipedia.org" target="_blank" rel="noopener noreferrer" style={{ color: "#d6a85f" }}>Wikipedia</a> and{" "}
+            Your evidence stays in your browser. Names, place searches, and submitted URLs are sent to{" "}
+            <a href="https://www.wikipedia.org" target="_blank" rel="noopener noreferrer" style={{ color: "#d6a85f" }}>Wikipedia</a>,{" "}
+            <a href="https://www.wikidata.org" target="_blank" rel="noopener noreferrer" style={{ color: "#d6a85f" }}>Wikidata</a>, and{" "}
             <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" style={{ color: "#d6a85f" }}>OpenStreetMap</a> for lookup;
             books are queried via{" "}
             <a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer" style={{ color: "#d6a85f" }}>Open Library</a>.

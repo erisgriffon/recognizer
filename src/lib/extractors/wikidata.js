@@ -132,3 +132,71 @@ export const fetchWikidataFacts = async (qid) => {
     return null;
   }
 };
+
+// URL variants to try against Wikidata's P856. Wikidata stores official
+// websites with inconsistent normalization, so we generate a small set
+// of plausible forms and FILTER against all of them in one query.
+// Order doesn't matter — the SPARQL FILTER is set-membership.
+const urlVariants = (url) => {
+  let u;
+  try { u = new URL(url); } catch { return []; }
+  // Strip query and fragment — official-website properties never carry them.
+  const path = u.pathname.replace(/\/$/, ""); // no trailing slash
+  const pathSlash = path + "/";              // with trailing slash
+  // Build with and without www. on the hostname.
+  const host = u.hostname;
+  const altHost = host.startsWith("www.") ? host.slice(4) : "www." + host;
+  // And both http and https.
+  const protocols = new Set([u.protocol, "https:", "http:"]);
+  const hosts = new Set([host, altHost]);
+  const paths = new Set([path, pathSlash, ""]); // also try bare origin
+  const out = new Set();
+  for (const proto of protocols) {
+    for (const h of hosts) {
+      for (const p of paths) {
+        out.add(`${proto}//${h}${p}`);
+      }
+    }
+  }
+  return Array.from(out);
+};
+
+/**
+ * Try to identify the Wikidata entity that owns a given URL via the
+ * "official website" property (P856). Returns a Q-number string, or
+ * null. Tries a handful of URL normalization variants because
+ * Wikidata stores official-website URLs inconsistently across entities
+ * (some with trailing slash, some without; some with www., some
+ * without).
+ *
+ * Best-effort: any network or parse error returns null. Never throws.
+ */
+export const lookupWikidataByUrl = async (url) => {
+  if (!url) return null;
+  const variants = urlVariants(url);
+  if (variants.length === 0) return null;
+  const filter = variants.map((v) => `<${v}>`).join(", ");
+  const sparql = `
+    SELECT ?item WHERE {
+      ?item wdt:P856 ?url .
+      FILTER (?url IN (${filter}))
+    }
+    LIMIT 1
+  `.trim();
+  try {
+    const endpoint = "https://query.wikidata.org/sparql";
+    const res = await fetch(
+      `${endpoint}?format=json&query=${encodeURIComponent(sparql)}`,
+      { headers: { Accept: "application/sparql-results+json" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const binding = data?.results?.bindings?.[0];
+    const uri = binding?.item?.value;
+    if (!uri) return null;
+    const m = /Q\d+$/.exec(uri);
+    return m ? m[0] : null;
+  } catch (e) {
+    return null;
+  }
+};
