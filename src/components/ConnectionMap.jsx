@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { createLayoutSimulation, edgeJitter, mulberry32, seedFromIds } from "../lib/layout.js";
+import { TIERS } from "../lib/connections.config.js";
+
+const NOTABLE_MIN = TIERS.find((t) => t.name === "NOTABLE")?.min || 0.5;
 
 export default function ConnectionMap({ nodes, connections, selectedNodeId = null, onNodeClick }) {
   const containerRef = useRef(null);
@@ -9,7 +12,12 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
   const [positions, setPositions] = useState({});
   const [isSettling, setIsSettling] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
-  const [isMobile, setIsMobile] = useState(false);
+  
+  const isMobile = dimensions.width < 600;
+  const cardW = isMobile ? 90 : 120;
+  const cardH = isMobile ? 45 : 60;
+  const halfW = cardW / 2;
+  const halfH = cardH / 2;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -19,7 +27,6 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
         const { width, height } = entry.contentRect;
         if (width > 0 && height > 0) {
           setDimensions({ width, height });
-          setIsMobile(width < 600);
         }
       }
     });
@@ -35,11 +42,9 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
       if (positionsRef.current[node.id]) initial[node.id] = positionsRef.current[node.id];
     }
     
-    const cardW = isMobile ? 90 : 120;
-    const cardH = isMobile ? 45 : 60;
     const repulsionK = isMobile ? 3000 : 6000;
-    const insetX = cardW / 2 + 5;
-    const insetY = cardH / 2 + 5;
+    const insetX = halfW + 5;
+    const insetY = halfH + 5;
 
     simRef.current = createLayoutSimulation(nodes, connections, { 
       initial,
@@ -66,7 +71,7 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idKey, dimensions.width, dimensions.height, isMobile]);
+  }, [idKey, dimensions.width, dimensions.height]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -100,7 +105,7 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
       if (!a || !b) return;
       
       // Filter out trivial edges unless they are incident to the selected node
-      if (c.strength < 0.5 && !isIncident(c)) {
+      if (c.strength < NOTABLE_MIN && !isIncident(c)) {
         culledCount++;
         return;
       }
@@ -119,11 +124,6 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
       ctx.quadraticCurveTo(mx, my, b.x, b.y);
       ctx.stroke();
     });
-    
-    const cardW = isMobile ? 90 : 120;
-    const cardH = isMobile ? 45 : 60;
-    const halfW = cardW / 2;
-    const halfH = cardH / 2;
     
     nodes.forEach((node) => {
       const p = positions[node.id];
@@ -191,7 +191,7 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
       ctx.textAlign = "right";
       ctx.fillText(`(${culledCount} TRIVIAL EDGES HIDDEN)`, dimensions.width - 10, dimensions.height - 10);
     }
-  }, [nodes, connections, positions, selectedNodeId, dimensions, isMobile]);
+  }, [nodes, connections, positions, selectedNodeId, dimensions]);
 
   const handleClick = (e) => {
     if (!onNodeClick) return;
@@ -210,11 +210,6 @@ export default function ConnectionMap({ nodes, connections, selectedNodeId = nul
     const scaleY = dimensions.height / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
-    
-    const cardW = isMobile ? 90 : 120;
-    const cardH = isMobile ? 45 : 60;
-    const halfW = cardW / 2;
-    const halfH = cardH / 2;
     
     for (const node of nodes) {
       const p = positions[node.id];
