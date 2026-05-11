@@ -205,6 +205,12 @@ It's permanent now. Future debugging features should follow the same
 pattern: if the app is making decisions based on data, give the user (or
 developer) the option to see that data inline on the affected node.
 
+### Corkboard trivial edge filter
+
+Originally we kept the corkboard showing all connections, reasoning that "visual density is part of its information value." At 30 nodes this proved wrong — past a certain edge count the visual signal is gone, every node connects to every other node, and the corkboard looks like a yarn explosion. We added a hard floor at strength 0.5 for non-incident edges (incident edges to the selected node still draw, so selection acts as the "show everything" escape). Visible count goes in a small corner indicator.
+
+**Lesson:** "information density" stops being information when the density exceeds visual parseability. The strength tiers exist for a reason; the corkboard should respect them.
+
 ## Things we considered but didn't ship
 
 ### Audio BPM and frequency analysis
